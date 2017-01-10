@@ -10,18 +10,29 @@ namespace HigLabo.Core
     {
         public Func<String, String> UrlEncoder = s => s;
         public Func<String, String> UrlDecoder = s => s;
+        public StringComparer StringComparer { get; set; }
 
         public QueryStringConverter()
         {
+            this.StringComparer = StringComparer.OrdinalIgnoreCase;
 #if !Pcl
             this.UrlEncoder = WebUtility.UrlEncode;
             this.UrlDecoder = WebUtility.UrlDecode;
 #endif
         }
-        public Dictionary<String, String> Parse(String queryString)
+        public Dictionary<String, String> Parse(String url)
         {
-            var d = new Dictionary<String, String>();
-
+            var d = new Dictionary<String, String>(this.StringComparer);
+            var queryString = url;
+            var index = url.IndexOf("?");
+            if (index > -1)
+            {
+                index = index + 1;
+                if (index < url.Length)
+                {
+                    queryString = url.Substring(index, url.Length - index);
+                }
+            }
             var length = queryString.Length;
             StringBuilder sb = new StringBuilder();
             String key = "";
@@ -67,6 +78,8 @@ namespace HigLabo.Core
         }
         public String Write(Dictionary<String, String> values)
         {
+            if (values.Count == 0) { return ""; }
+
             StringBuilder sb = new StringBuilder();
             foreach (var key in values.Keys)
             {
@@ -75,8 +88,20 @@ namespace HigLabo.Core
                 sb.Append(UrlEncoder(values[key]));
                 sb.Append("&");
             }
-            sb.Length = sb.Length - 1;
+            if (sb.Length > 0)
+            {
+                sb.Length = sb.Length - 1;
+            }
             return sb.ToString();
+        }
+        public String Write(String url, Dictionary<String, String> values)
+        {
+            var q = this.Write(values);
+            if (String.IsNullOrEmpty(q) == true)
+            {
+                return url;
+            }
+            return String.Format("{0}?{1}", url, q);
         }
     }
 }

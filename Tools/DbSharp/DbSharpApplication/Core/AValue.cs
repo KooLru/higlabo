@@ -44,6 +44,10 @@ namespace HigLabo.DbSharpApplication.Core
                     String xml = File.ReadAllText(AValue.ConfigData.SchemaFilePath);
                     AValue.LoadSchemaData(xml);
                 }
+                catch (DirectoryNotFoundException)
+                {
+                    AValue.ConfigData.SchemaFilePath = "";
+                }
                 catch (FileNotFoundException)
                 {
                     AValue.ConfigData.SchemaFilePath = "";
@@ -110,10 +114,10 @@ namespace HigLabo.DbSharpApplication.Core
         }
         public static void EnsureGenerateSourceCodeFolder(String path)
         {
-            var tablePath = path + "Table";
-            var tableStoredProcedurePath = path + "TableStoredProcedure";
-            var storedProcedurePath = path + "StoredProcedure";
-            var userDefinedTableTypePath = path + "UserDefinedTableType";
+            var tablePath = Path.Combine(path, "Table");
+            var tableStoredProcedurePath = Path.Combine(path, "TableStoredProcedure");
+            var storedProcedurePath = Path.Combine(path, "StoredProcedure");
+            var userDefinedTableTypePath = Path.Combine(path, "UserDefinedTableType");
 
             if (Directory.Exists(path) == false)
             {

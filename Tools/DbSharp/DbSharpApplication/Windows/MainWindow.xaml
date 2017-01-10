@@ -43,6 +43,9 @@
                 <MenuItem Name="m0106" Header="{x:Static p:Resources.Menu_GenerateSqlScript}" Click="m0106_Click"></MenuItem>
                 <MenuItem Name="m0107" Header="{x:Static p:Resources.Menu_ManageIgnoreList}" Click="m0107_Click"></MenuItem>
                 <MenuItem Name="m0110" Header="{x:Static p:Resources.Menu_ImportUpdatedObjectAndGenerateFiles}" Click="m0110_Click"></MenuItem>
+                <MenuItem Name="m0190" Header="{x:Static p:Resources.Menu_Other}">
+                    <MenuItem Name="m0191" Header="{x:Static p:Resources.Menu_DeleteObjectAndAddToIgnoreList}" Click="m0191_Click"></MenuItem>
+                </MenuItem>
             </MenuItem>
             <MenuItem Name="m0200" Header="{x:Static p:Resources.Menu_View}">
                 <MenuItem Name="m0201" Header="{x:Static p:Resources.Menu_Table}" Click="m0201_Click"></MenuItem>

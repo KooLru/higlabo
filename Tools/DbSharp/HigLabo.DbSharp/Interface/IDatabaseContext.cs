@@ -9,20 +9,21 @@ namespace HigLabo.DbSharp
 {
     public interface IDatabaseContext
     {
-        String GetDatabaseKey();
+        String DatabaseKey { get; set; }
         String TransactionKey { get; set; }
     }
+
     public static class IDatabaseContextExtensions
     {
         public static Database GetDatabase(this IDatabaseContext context)
         {
             Database db = null;
             var dc = DatabaseContext.GetDatabaseContext(context.TransactionKey);
-            if (db == null)
+            if (dc == null)
             {
                 if (context.TransactionKey == "")
                 {
-                    db = DatabaseFactory.Current.CreateDatabase(context.GetDatabaseKey());
+                    db = DatabaseFactory.Current.CreateDatabase(context.DatabaseKey);
                 }
                 else
                 {

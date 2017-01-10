@@ -5,10 +5,12 @@ using System.Text;
 
 namespace HigLabo.Core
 {
-    public static class StringExtensions
+    public static partial class StringExtensions
     {
         public static String UnifyLineFeed(this String text)
         {
+            if (text == null) { return text; }
+
             var nextChar = '\0';
             var sb = new StringBuilder(text.Length);
 
@@ -63,12 +65,133 @@ namespace HigLabo.Core
         {
             return String.IsNullOrEmpty(text);
         }
-#if _Net_4_0 || _Net_4_5
-        public static Boolean IsNullOrWhiteSpace(this String text)
+
+        /// <summary>
+        /// PascalCaseFirstLetterOfEveryWordIsUpper
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static String ToPascalCase(this String value)
         {
-            return String.IsNullOrWhiteSpace(text);
+            if (value == null) { return value; }
+
+            var sb = new StringBuilder(value.Length);
+
+            for (var i = 0; i < value.Length; i++)
+            {
+                if (i == 0)
+                {
+                    sb.Append(value[i].ToString().ToUpper());
+                }
+                else
+                {
+                    sb.Append(value[i]);
+                }
+            }
+            return sb.ToString();
         }
-#endif
+        /// <summary>
+        /// camelCaseFirstLetterIsLowerAndFirstLetterOfEveryWordIsUpper
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static String ToCamelCase(this String value)
+        {
+            if (value == null) { return value; }
+
+            var sb = new StringBuilder(value.Length);
+
+            for (var i = 0; i < value.Length; i++)
+            {
+                if (i == 0)
+                {
+                    sb.Append(value[i].ToString().ToLower());
+                }
+                else
+                {
+                    sb.Append(value[i]);
+                }
+            }
+            return sb.ToString();
+        }
+        /// <summary>
+        /// snake_case_is_lower_case_and_underscore
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static String ToSnakeCase(this String value)
+        {
+            if (value == null) { return value; }
+
+            var sb = new StringBuilder(value.Length + 4);
+
+            for (var i = 0; i < value.Length; i++)
+            {
+                if (i > 0 && Char.IsUpper(value[i]))
+                {
+                    sb.Append("_");
+                }
+                sb.Append(value[i]);
+            }
+            return sb.ToString();
+        }
+        /// <summary>
+        /// Train-Case-is-Upper-Case-And-Hyphen
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static String ToTrainCase(this String value)
+        {
+            if (value == null) { return value; }
+
+            var sb = new StringBuilder(value.Length + 4);
+
+            for (var i = 0; i < value.Length; i++)
+            {
+                if (i > 0 && Char.IsUpper(value[i]))
+                {
+                    sb.Append("-");
+                }
+                sb.Append(value[i]);
+            }
+            return sb.ToString();
+        }
+        /// <summary>
+        /// kebab-case-is-lower-case-and-hyphen
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static String ToKebabCase(this String value)
+        {
+            if (value == null) { return value; }
+
+            var sb = new StringBuilder(value.Length + 4);
+            var previousCharIsUpperCase = false;
+
+            for (var i = 0; i < value.Length; i++)
+            {
+                if (i > 0 && Char.IsUpper(value[i]) && previousCharIsUpperCase == false)
+                {
+                    previousCharIsUpperCase = true;
+                    sb.Append("-");
+                }
+                else
+                {
+                    previousCharIsUpperCase = false;
+                }
+                sb.Append(value[i].ToString().ToLower());
+            }
+            return sb.ToString();
+        }
+        /// <summary>
+        /// lisp-case-is-lower-case-and-hyphen
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static String ToLispCase(this String value)
+        {
+            return ToKebabCase(value);
+        }
 
         public static Boolean? ToBoolean(this String value)
         {

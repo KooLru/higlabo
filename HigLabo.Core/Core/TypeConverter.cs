@@ -1,13 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace HigLabo.Core
 {
-    public class TypeConverter
+    public partial class TypeConverter
     {
         public NumberStyles IntergerNumberStyle { get; set; }
         public NumberStyles SingleNumberStyle { get; set; }
@@ -71,6 +68,20 @@ namespace HigLabo.Core
             if (tp == typeof(String) && Guid.TryParse((String)value, out g))
             {
                 return g;
+            }
+            if (tp == typeof (String))
+            {
+                var s = (String)value;
+                if (s != null)
+                {
+                    try
+                    {
+                        s = s.Replace("_", "/").Replace("-", "+");
+                        byte[] buffer = Convert.FromBase64String(s + "==");
+                        return new Guid(buffer);
+                    }
+                    catch { }
+                }
             }
             return null;
         }
@@ -745,11 +756,19 @@ namespace HigLabo.Core
             if (value == null) return null;
             var tp = value.GetType();
             if (tp == typeof(DateTimeOffset)) return (DateTimeOffset)value;
-            if (tp == typeof(String) && DateTimeOffset.TryParse((String)value, formatProvider, dateTimeStyle, out x))
+            if (tp == typeof(String))
             {
-                return x;
+                if (DateTimeOffset.TryParse((String)value, formatProvider, dateTimeStyle, out x))
+                {
+                    return x;
+                }
+                else
+                {
+                    var xx = ToDateTimeOffsetWithTimeZone((String)value);
+                    if (xx.HasValue) { return xx; }
+                }
             }
-            return null;
+            return ToDateTime(value);
         }
         public virtual DateTimeOffset? ToDateTimeOffsetExact(Object value)
         {
@@ -768,6 +787,88 @@ namespace HigLabo.Core
             }
             return null;
         }
+        private DateTimeOffset? ToDateTimeOffsetWithTimeZone(String value)
+        {
+            DateTimeOffset dtime = DateTimeOffset.Now;
+            TimeSpan ts = TimeSpan.Zero;
+
+            //Tue, 25 Oct 2011 20:44:24
+            if (DateTimeOffset.TryParse(value, out dtime) == true) { return dtime; }
+
+            var firstColonIndex = value.IndexOf(":", StringComparison.OrdinalIgnoreCase);
+            if (firstColonIndex == -1) { return null; }
+            var timezoneStartIndex = value.IndexOf(" ", firstColonIndex, StringComparison.OrdinalIgnoreCase);
+            if (timezoneStartIndex == -1) { return null; }
+            var dateTimePart = value.Substring(0, timezoneStartIndex);//Tue, 25 Oct 2011 20:44:24
+            if (DateTimeOffset.TryParse(dateTimePart, out dtime) == false) { return null; }
+            //(CST) or CST or +0600 (Three letter military timezone)
+            var timeZonePart = value.Substring(timezoneStartIndex + 1).Trim();//+0600 or GMT (Three letter military timezone)
+
+            //Thu, 10 Apr 2014 04:27:37 +0000 (GMT+00:00)
+            var timezoneEndIndex = timeZonePart.IndexOf(" ", StringComparison.OrdinalIgnoreCase);
+            if (timezoneEndIndex != -1)
+                timeZonePart = timeZonePart.Substring(0, timezoneEndIndex);
+
+            if (timeZonePart[0] == '+' || timeZonePart[0] == '-')
+            {
+                if (timeZonePart.Length < 5) { throw new FormatException(); }
+                var hour = Convert.ToInt32(timeZonePart.Substring(1, 2));
+                var minute = Convert.ToInt32(timeZonePart.Substring(3, 2));
+                if (timeZonePart[0] == '-')
+                {
+                    hour = -hour;
+                    minute = -minute;
+                }
+                return new DateTimeOffset(dtime.DateTime, new TimeSpan(hour, minute, 0));
+            }
+            if (timeZonePart[0] == '(')
+            {
+                timeZonePart = timeZonePart.TrimStart('(');
+                timeZonePart = timeZonePart.TrimEnd(')');
+            }
+            switch (timeZonePart)
+            {
+                case "A": ts = new TimeSpan(1, 0, 0); break;
+                case "B": ts = new TimeSpan(2, 0, 0); break;
+                case "C": ts = new TimeSpan(3, 0, 0); break;
+                case "D": ts = new TimeSpan(4, 0, 0); break;
+                case "E": ts = new TimeSpan(5, 0, 0); break;
+                case "F": ts = new TimeSpan(6, 0, 0); break;
+                case "G": ts = new TimeSpan(7, 0, 0); break;
+                case "H": ts = new TimeSpan(8, 0, 0); break;
+                case "I": ts = new TimeSpan(9, 0, 0); break;
+                case "K": ts = new TimeSpan(10, 0, 0); break;
+                case "L": ts = new TimeSpan(11, 0, 0); break;
+                case "M": ts = new TimeSpan(12, 0, 0); break;
+                case "N": ts = new TimeSpan(-1, 0, 0); break;
+                case "O": ts = new TimeSpan(-2, 0, 0); break;
+                case "P": ts = new TimeSpan(-3, 0, 0); break;
+                case "Q": ts = new TimeSpan(-4, 0, 0); break;
+                case "R": ts = new TimeSpan(-5, 0, 0); break;
+                case "S": ts = new TimeSpan(-6, 0, 0); break;
+                case "T": ts = new TimeSpan(-7, 0, 0); break;
+                case "U": ts = new TimeSpan(-8, 0, 0); break;
+                case "V": ts = new TimeSpan(-9, 0, 0); break;
+                case "W": ts = new TimeSpan(-10, 0, 0); break;
+                case "X": ts = new TimeSpan(-11, 0, 0); break;
+                case "Y": ts = new TimeSpan(-12, 0, 0); break;
+                case "Z":
+                case "UT":
+                case "GMT": break;    // It's UTC
+                case "EST": ts = new TimeSpan(5, 0, 0); break;
+                case "EDT": ts = new TimeSpan(4, 0, 0); break;
+                case "CST": ts = new TimeSpan(6, 0, 0); break;
+                case "CDT": ts = new TimeSpan(5, 0, 0); break;
+                case "MST": ts = new TimeSpan(7, 0, 0); break;
+                case "MDT": ts = new TimeSpan(6, 0, 0); break;
+                case "PST": ts = new TimeSpan(8, 0, 0); break;
+                case "PDT": ts = new TimeSpan(7, 0, 0); break;
+                case "JST": ts = new TimeSpan(9, 0, 0); break;
+                default: return null;
+            }
+            return new DateTimeOffset(dtime.DateTime, ts);
+        }
+
         public virtual T? ToEnum<T>(Object value) where T : struct
         {
             return ToEnum<T>(value, true);
@@ -829,5 +930,97 @@ namespace HigLabo.Core
             return null;
         }
 #endif
+
+#if !NETFX_CORE && !Pcl && !_Net_3_5
+        public virtual Object ToEnum(Object value, Type type, StringComparison comparison)
+        {
+            if (value == null) return null;
+            var TP = type;
+            if (TP.IsEnum == false) throw new ArgumentException("T must be Enum type");
+            var tp = value.GetType();
+            if (tp == TP) return value;
+            if (tp == typeof(String))
+            {
+                var s = (String)value;
+                return s.ToEnum(type, comparison);
+            }
+            if (tp.IsValueType == true)
+            {
+                var enumUnderlyingType = TP.GetEnumUnderlyingType();
+                if (enumUnderlyingType == typeof(SByte) && (tp == typeof(SByte))) return Enum.ToObject(type, value);
+                if (enumUnderlyingType == typeof(Int16) && (tp == typeof(SByte) || tp == typeof(Int16))) return Enum.ToObject(type, value);
+                if (enumUnderlyingType == typeof(Int32) && (tp == typeof(SByte) || tp == typeof(Int16) || tp == typeof(Int32))) return Enum.ToObject(type, value);
+                if (enumUnderlyingType == typeof(Int64) && (tp == typeof(SByte) || tp == typeof(Int16) || tp == typeof(Int32) || tp == typeof(Int64))) return Enum.ToObject(type, value);
+                if (enumUnderlyingType == typeof(Byte) && (tp == typeof(Byte))) return Enum.ToObject(type, value);
+                if (enumUnderlyingType == typeof(UInt16) && (tp == typeof(Byte) || tp == typeof(UInt16))) return Enum.ToObject(type, value);
+                if (enumUnderlyingType == typeof(UInt32) && (tp == typeof(Byte) || tp == typeof(UInt16) || tp == typeof(UInt32))) return Enum.ToObject(type, value);
+                if (enumUnderlyingType == typeof(UInt64) && (tp == typeof(Byte) || tp == typeof(UInt16) || tp == typeof(UInt32) || tp == typeof(UInt64))) return Enum.ToObject(type, value);
+            }
+            return null;
+        }
+        public virtual Object Cast(Object value, Type type)
+        {
+            return Cast(value, type, StringComparison.OrdinalIgnoreCase);
+        }
+        public virtual Object Cast(Object value, Type type, StringComparison comparison)
+        {
+            var tp = type;
+            Object o = null;
+
+            if (tp == typeof(String)) { o = (String)value; }
+            else if (tp == typeof(Boolean) || tp == typeof(Boolean?)) { o = this.ToBoolean(value); }
+            else if (tp == typeof(Guid) || tp == typeof(Guid?)) { o = this.ToGuid(value); }
+            else if (tp == typeof(Int16) || tp == typeof(Int16?)) { o = this.ToInt16(value); }
+            else if (tp == typeof(Int32) || tp == typeof(Int32?)) { o = this.ToInt32(value); }
+            else if (tp == typeof(Int64) || tp == typeof(Int64?)) { o = this.ToInt64(value); }
+            else if (tp == typeof(UInt16) || tp == typeof(UInt16?)) { o = this.ToUInt16(value); }
+            else if (tp == typeof(UInt32) || tp == typeof(UInt32?)) { o = this.ToUInt32(value); }
+            else if (tp == typeof(UInt64) || tp == typeof(UInt64?)) { o = this.ToUInt64(value); }
+            else if (tp == typeof(Byte) || tp == typeof(Byte?)) { o = this.ToByte(value); }
+            else if (tp == typeof(SByte) || tp == typeof(SByte?)) { o = this.ToSByte(value); }
+            else if (tp == typeof(Single) || tp == typeof(Single?)) { o = this.ToSingle(value); }
+            else if (tp == typeof(Double) || tp == typeof(Double?)) { o = this.ToDouble(value); }
+            else if (tp == typeof(Decimal) || tp == typeof(Decimal?)) { o = this.ToDecimal(value); }
+            else if (tp == typeof(DateTime) || tp == typeof(DateTime?)) { o = this.ToDateTime(value); }
+            else if (tp == typeof(DateTimeOffset) || tp == typeof(DateTimeOffset?)) { o = this.ToDateTimeOffset(value); }
+            else if (tp.IsEnum) { o = this.ToEnum(value, tp, comparison); }
+            else if (tp.IsPrimitive || tp.IsValueType)
+            {
+                try
+                {
+                    o = Convert.ChangeType(value, tp);
+                }
+                catch { }
+            }
+            return o;
+        }
+#endif
+        public virtual Encoding ToEncoding(Object value)
+        {
+            try
+            {
+                var s = value as String;
+                if (s != null)
+                {
+                    return Encoding.GetEncoding(s);
+                }
+            }
+            catch
+            {
+            }
+#if !Pcl
+            try
+            {
+                if (value is Int32)
+                {
+                    return Encoding.GetEncoding((Int32)value);
+                }
+            }
+            catch
+            {
+            }
+#endif
+            return null;
+        }
     }
 }

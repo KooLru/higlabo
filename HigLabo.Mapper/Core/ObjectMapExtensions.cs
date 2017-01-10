@@ -15,18 +15,34 @@ namespace HigLabo.Core
         {
             return ObjectMapConfig.Current.Map(source, target);
         }
+
+        public static TTarget MapOrNull<TSource, TTarget>(this TSource source, Func<TTarget> targetConstructor)
+            where TTarget : class
+        {
+            return ObjectMapConfig.Current.MapOrNull(source, targetConstructor);
+        }
         public static TTarget MapOrNull<TSource, TTarget>(this TSource source, TTarget target)
             where TTarget : class
         {
             return ObjectMapConfig.Current.MapOrNull(source, target);
         }
-        public static IEnumerable<TTarget> Map<TSource, TTarget>(this IEnumerable<TSource> source, Func<TTarget> constructor)
-        {
-            return ObjectMapConfig.Current.Map(source, constructor);
-        }
         public static TTarget MapFrom<TTarget, TSource>(this TTarget target, TSource source)
         {
             return ObjectMapConfig.Current.Map(source, target);
+        }
+
+        public static ICollection<TTarget> Map<TSource, TTarget>(this IEnumerable<TSource> source, ICollection<TTarget> target, MappingContext context)
+            where TTarget : new()
+        {
+            return ObjectMapConfig.Current.Map(source, target, () => new TTarget(), context);
+        }
+        public static IEnumerable<TTarget> Map<TSource, TTarget>(this IEnumerable<TSource> source, Func<TTarget> elementConstructor)
+        {
+            return source.Select(el => ObjectMapConfig.Current.Map(el, elementConstructor()));
+        }
+        public static ICollection<TTarget> Map<TSource, TTarget>(this IEnumerable<TSource> source, ICollection<TTarget> target, Func<TTarget> elementConstructor, MappingContext context)
+        {
+            return ObjectMapConfig.Current.Map(source, target, elementConstructor, context);
         }
     }
 }

@@ -40,7 +40,6 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
   </ItemGroup>
@@ -55,11 +54,13 @@
     <Compile Include="Entity\EqualityFunc.cs" />
     <Compile Include="Entity\EventArgs.cs" />
     <Compile Include="Entity\ExceptionEventArgs.cs" />
+    <Compile Include="Entity\IPAddress_v4.cs" />
     <Compile Include="Entity\SequentialGuid.cs" />
     <Compile Include="Entity\SequentialGuidDatabase.cs" />
     <Compile Include="Entity\SequentialGuidType.cs" />
     <Compile Include="Extensions\AesManagedExtensions.cs" />
     <Compile Include="Extensions\AesManagedExtensionsSettings.cs" />
+    <Compile Include="Extensions\DateTimeOffsetExtensions.cs" />
     <Compile Include="Extensions\DictionaryExtensions.cs" />
     <Compile Include="Extensions\EncodingExtensions_WinRT.cs" />
     <Compile Include="Extensions\EnumExtensions_Net_3_5.cs" />

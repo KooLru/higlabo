@@ -8,14 +8,19 @@ namespace HigLabo.Core
 {
     public class MappingContext
     {
-        internal List<KeyValuePair<Object, Object>> MappedObjectPair { get; private set; }
-        internal Int32 CallStackCount { get; set; }
-        public Boolean DictionaryKeyIgnoreCase { get; set; }
+        public Int32 MaxCallStackCount { get; set; }
+        public Int32 CallStackCount { get; set; }
+        public Int32 LayerLevel { get; set; }
 
-        public MappingContext(Boolean dictionaryKeyIgnoreCase)
+        internal MappingContext(Int32 maxCallStackCount)
         {
-            this.DictionaryKeyIgnoreCase = dictionaryKeyIgnoreCase;
-            this.MappedObjectPair = new List<KeyValuePair<Object, Object>>();
+            this.MaxCallStackCount = maxCallStackCount;
+            this.CallStackCount = 0;
+            this.LayerLevel = 0;
+        }
+        public Boolean MaxCallStackCountOver()
+        {
+            return this.CallStackCount > this.MaxCallStackCount;
         }
     }
 }

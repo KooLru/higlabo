@@ -40,15 +40,13 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Converter\Base64Converter.cs" />
     <Compile Include="Converter\ByteConverter.cs" />
+    <Compile Include="Converter\PunycodeConverter.cs" />
+    <Compile Include="Converter\Rfc2822Converter.cs" />
     <Compile Include="Converter\ISO8601Parser.cs" />
     <Compile Include="Converter\ModifiedUtf7Converter.cs" />
     <Compile Include="Converter\QueryStringConverter.cs" />
