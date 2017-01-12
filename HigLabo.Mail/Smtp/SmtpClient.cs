@@ -699,8 +699,10 @@ namespace HigLabo.Net.Smtp
             return this.SendMailList(l.ToArray());
         }
         /// メールを送信し、送信結果となるSendMailListResultを取得します。
+        /// Send mail and get SendMailListResult which is the transmission result.
         /// <summary>
         /// メールを送信し、送信結果となるSendMailListResultを取得します。
+        /// Send mail and get SendMailListResult which is the transmission result.
         /// </summary>
         /// <param name="command"></param>
         /// <returns></returns>
@@ -709,9 +711,10 @@ namespace HigLabo.Net.Smtp
             var l = this.SendMailList(new[] { command });
             if (l.Results.Count == 1)
             {
-                return new SendMailResult(l.Results[0].State, command);
+               return new SendMailResult(l.Results[0].State, command, l.Results[0].Message, l.Results[0].InvalidMailAddressList);
             }
             return new SendMailResult(l.State, command);
+            //return l;
         }
         /// メールを送信し、送信結果となるSendMailListResultを取得します。
         /// <summary>
@@ -738,6 +741,7 @@ namespace HigLabo.Net.Smtp
             if (this.State != SmtpConnectionState.Authenticated)
             {
                 //サーバーへメールトランザクションの開始コマンドを送信
+                //Send mail transaction start command to server
                 rs = this.ExecuteEhloAndHelo();
                 if (rs.StatusCode != SmtpCommandResultCode.RequestedMailActionOkay_Completed)
                 { return new SendMailListResult(SendMailResultState.Helo); }
