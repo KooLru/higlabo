@@ -438,9 +438,15 @@ namespace HigLabo.Net.Smtp
                 { return false; }
                 //パスワード送信
                 rs = this.Execute(Base64Converter.Encode(Encoding.UTF8.GetBytes(this.Password)));
+                //Yandex check for bot
+                //5.7.8 Error: authentication failed: Your message looks like spam. You need to use web for sending or prove you are not a robot using the following link http://ya.cc....
                 if (rs.StatusCode == SmtpCommandResultCode.AuthenticationSuccessful)
                 {
                     this._State = SmtpConnectionState.Authenticated;
+                }
+                else
+                {
+                    throw new SmtpAuthenticateException(rs.Message);
                 }
             }
             return this._State == SmtpConnectionState.Authenticated;
