@@ -41,6 +41,43 @@ namespace HigLabo.DbSharp
         /// 
         /// </summary>
         /// <returns></returns>
+        public new T GetFirstResultSet()
+        {
+            return base.GetFirstResultSet() as T;
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="database"></param>
+        /// <returns></returns>
+        public new T GetFirstResultSet(Database database)
+        {
+            return base.GetFirstResultSet(database) as T;
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="database"></param>
+        /// <returns></returns>
+        public new async Task<T> GetFirstResultSetAsync(Database database)
+        {
+            return (await this.GetResultSetsAsync(database)).FirstOrDefault() as T;
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="databases"></param>
+        /// <returns></returns>
+        public new async Task<T> GetFirstResultSetAsync(IEnumerable<Database> databases)
+        {
+            var results = await this.GetResultSetsAsync(databases);
+            return results.FirstOrDefault() as T;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
         public new List<T> GetResultSets()
         {
             return EnumerateResultSets().ToList();
@@ -54,6 +91,71 @@ namespace HigLabo.DbSharp
         {
             return EnumerateResultSets(database).ToList();
         }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="databases"></param>
+        /// <returns></returns>
+        public new List<T> GetResultSets(IEnumerable<Database> databases)
+        {
+            return base.GetResultSets(databases).Cast<T>().ToList();
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public new async Task<List<T>> GetResultSetsAsync()
+        {
+            return await GetResultSetsAsync(this.GetDatabase());
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="database"></param>
+        /// <returns></returns>
+        public new async Task<List<T>> GetResultSetsAsync(Database database)
+        {
+            var l = new List<T>();
+            foreach (var item in await base.GetResultSetsAsync(database))
+            {
+                l.Add(item as T);
+            }
+            return l;
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="databases"></param>
+        /// <returns></returns>
+        public new async Task<IEnumerable<T>> GetResultSetsAsync(IEnumerable<Database> databases)
+        {
+            var l = new List<T>();
+            foreach (var item in await base.GetResultSetsAsync(databases))
+            {
+                l.Add(item as T);
+            }
+            return l;
+        }
+
+ 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public new IEnumerable<T> EnumerateResultSets()
+        {
+            return base.EnumerateResultSets().Cast<T>();
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="database"></param>
+        /// <returns></returns>
+        public new IEnumerable<T> EnumerateResultSets(Database database)
+        {
+            return base.EnumerateResultSets(database).Cast<T>();
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -78,23 +180,6 @@ namespace HigLabo.DbSharp
         /// <summary>
         /// 
         /// </summary>
-        /// <returns></returns>
-        public new IEnumerable<T> EnumerateResultSets()
-        {
-            return base.EnumerateResultSets().Cast<T>();
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="database"></param>
-        /// <returns></returns>
-        public new IEnumerable<T> EnumerateResultSets(Database database)
-        {
-            return base.EnumerateResultSets(database).Cast<T>();
-        }
-        /// <summary>
-        /// 
-        /// </summary>
         /// <typeparam name="TResult"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
@@ -112,45 +197,6 @@ namespace HigLabo.DbSharp
         public IEnumerable<TResult> EnumerateResultSets<TResult>(Database database, Func<T, TResult> selector)
         {
             return this.EnumerateResultSets(database).Select(selector);
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="database"></param>
-        /// <param name="createReulstSetMethodList"></param>
-        /// <returns></returns>
-        protected List<List<StoredProcedureResultSet>> GetResultSetsList(Database database, params Func<DbDataReader, StoredProcedureResultSet>[] createReulstSetMethodList)
-        {
-            List<List<StoredProcedureResultSet>> l = new List<List<StoredProcedureResultSet>>();
-            DbDataReader dr = null;
-            var previousState = database.ConnectionState;
-
-            try
-            {
-                var cm = CreateCommand();
-                dr = database.ExecuteReader(cm);
-                Int32 index = 0;
-                while (true)
-                {
-                    l.Add(new List<StoredProcedureResultSet>());
-                    while (dr.Read())
-                    {
-                        var rs = createReulstSetMethodList[index](dr);
-                        l[index].Add(rs);
-                    }
-                    index += 1;
-                    if (dr.NextResult() == false) break;
-                }
-                dr.Close();
-                this.SetOutputParameterValue(cm);
-            }
-            finally
-            {
-                if (dr != null) { dr.Dispose(); }
-                if (previousState == ConnectionState.Closed && database.ConnectionState == ConnectionState.Open) { database.Close(); }
-                if (database.OnTransaction == false) { database.Dispose(); }
-            }
-            return l;
         }
         /// <summary>
         /// 

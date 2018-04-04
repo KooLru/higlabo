@@ -228,6 +228,8 @@ namespace HigLabo.Net.Smtp
             while (true)
             {
                 lineText = sr.ReadLine();
+                if (lineText.IsNullOrEmpty() == true) { break; }
+
                 CurrentLine = new SmtpCommandResultLine(lineText);
                 l.Add(CurrentLine);
                 //次の行があるかチェック
@@ -841,7 +843,7 @@ namespace HigLabo.Net.Smtp
                 }
             }
             rs = this.ExecuteQuit();
-            //全て成功したかどうかチェック
+
             if (results.Exists(el => el.State != SendMailResultState.Success) == true)
             {
                 return new SendMailListResult(SendMailResultState.SendMailData, results);

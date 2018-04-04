@@ -78,20 +78,19 @@ namespace HigLabo.DbSharp.CodeGenerator
                     sp.Parameters.Add(p);
                 }
             }
-            if (storedProcedureType == StoredProcedureType.SelectByPrimaryKey ||
-                storedProcedureType == StoredProcedureType.Update ||
+            if (storedProcedureType == StoredProcedureType.SelectByPrimaryKey)
+            {
+                foreach (var c in table.GetPrimaryKeyColumns())
+                {
+                    sp.Parameters.Add(new SqlInputParameter("@PK_" + c.Name, c));
+                }
+            }
+            else if (storedProcedureType == StoredProcedureType.Update ||
                 storedProcedureType == StoredProcedureType.Delete)
             {
                 foreach (var c in table.GetPrimaryKeyOrTimestampColumns())
                 {
-                    if (c.DbType.IsTimestamp() == true)
-                    {
-                        sp.Parameters.Add(new SqlInputParameter("@" + c.Name, c));
-                    }
-                    else
-                    {
-                        sp.Parameters.Add(new SqlInputParameter("@PK_" + c.Name, c));
-                    }
+                    sp.Parameters.Add(new SqlInputParameter("@PK_" + c.Name, c));
                 }
             }
             if (storedProcedureType == StoredProcedureType.SelectAll ||

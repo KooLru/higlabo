@@ -25,6 +25,7 @@ namespace HigLabo.Mapper.Test
         public Decimal? DecimalNullable { get; set; }
         public DayOfWeek DayOfWeek { get; set; }
         public DayOfWeek? DayOfWeekNullable { get; set; }
+        public Guid? GuidNullable { get; set; }
 
         public MapPoint MapPoint { get; set; }
         public Vector2 Vector2 { get; set; }
@@ -32,6 +33,7 @@ namespace HigLabo.Mapper.Test
         public List<User> Users { get; set; }
         public String[] Tags { get; set; }
         public Dictionary<String, String> Dictionary { get; set; }
+        public Byte[] Timestamp { get; set; }
 
         public User()
             : this("TestUser")

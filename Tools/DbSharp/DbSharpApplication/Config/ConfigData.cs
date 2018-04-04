@@ -130,6 +130,12 @@ namespace HigLabo.DbSharpApplication.Core
             {
                 this.ConnectionStrings.Insert(0, info);
             }
+            var f = this.GetCurrentRecentSchemaFile();
+            if (f != null)
+            {
+                f.ConnectionStringName = info.Name;
+            }
+            this.Save();
         }
 
         public String GetSqlScriptOutputDirectoryPath()
