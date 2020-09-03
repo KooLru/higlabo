@@ -53,6 +53,43 @@ namespace HigLabo.Mapper.Test
             Assert.AreEqual(v1.X, v2.X);
         }
         [TestMethod]
+        public void ObjectMapper_Map_ValueType_NullableValueType()
+        {
+            var mapper = new ObjectMapper();
+
+            var u1 = new User();
+            u1.Int32ToInt32Nullable = 3;
+            var u2 = mapper.Map(u1, new UserFlatten());
+
+            Assert.AreEqual(u1.Int32ToInt32Nullable, u2.Int32ToInt32Nullable);
+        }
+        [TestMethod]
+        public void ObjectMapper_Map_Enum_NullableEnum()
+        {
+            var mapper = new ObjectMapper();
+
+            var u1 = new User();
+            u1.DayOfWeekToDayOfWeekNullable = DayOfWeek.Wednesday;
+            u1.Vector2ToString = new Vector2(3, 5);
+            var u2 = mapper.Map(u1, new UserFlatten());
+
+            Assert.AreEqual(u1.DayOfWeekToDayOfWeekNullable, u2.DayOfWeekToDayOfWeekNullable);
+            Assert.AreEqual("X=3, Y=5", u2.Vector2ToString);
+        }
+        [TestMethod]
+        public void ObjectMapper_Map_Enum_String()
+        {
+            var mapper = new ObjectMapper();
+
+            var u1 = new User();
+            u1.DayOfWeekToString = DayOfWeek.Wednesday;
+            u1.DayOfWeekNullableToString = DayOfWeek.Friday;
+            var u2 = mapper.Map(u1, new UserFlatten());
+
+            Assert.AreEqual(u1.DayOfWeekToString.ToStringFromEnum(), u2.DayOfWeekToString);
+            Assert.AreEqual(u1.DayOfWeekNullableToString.ToStringFromEnum(), u2.DayOfWeekNullableToString);
+        }
+        [TestMethod]
         public void ObjectMapper_Map_ValueType_Object()
         {
             var mapper = new ObjectMapper();
@@ -403,7 +440,39 @@ namespace HigLabo.Mapper.Test
             Assert.AreEqual(new Guid("7195FBEF-B18C-BC29-E339-39DDC81FC90F"), u2.GuidNullable);
         }
         [TestMethod]
-        public void ObjectMapper_Map_Object_Dictionary()
+        public void ObjectMapper_Map_Object_Dictionary_String()
+        {
+            var mapper = new ObjectMapper();
+
+            var u1 = new User();
+            var d = mapper.Map(u1, new Dictionary<String, String>());
+
+            Assert.AreEqual(u1.Name, d["Name"]);
+            Assert.AreEqual(u1.Int32.ToString(), d["Int32"]);
+            Assert.AreEqual(u1.Decimal.ToString(), d["Decimal"]);
+            Assert.AreEqual(u1.DateTime.ToString(), d["DateTime"]);
+            Assert.AreEqual(u1.DayOfWeek.ToString(), d["DayOfWeek"]);
+            Assert.AreEqual(u1.MapPoint.ToString(), d["MapPoint"]);
+        }
+        [TestMethod]
+        public void ObjectMapper_Map_Object_Dictionary_String_Replace()
+        {
+            var mapper = new ObjectMapper();
+            mapper.ReplaceMap<User, Dictionary<String, String>>((source, target) =>
+            {
+                target["DateTime"] = source.DateTime.ToString("yyyy/MM/dd HH:mm");
+                target["MapPoint"] = String.Format("Lat={0}, Lon={1}", source.MapPoint.Latitude, source.MapPoint.Longitude);
+                return target;
+            });
+
+            var u1 = new User();
+            var d = mapper.Map(u1, new Dictionary<String, String>());
+
+            Assert.AreEqual(u1.DateTime.ToString("yyyy/MM/dd HH:mm"), d["DateTime"]);
+            Assert.AreEqual(String.Format("Lat={0}, Lon={1}", u1.MapPoint.Latitude, u1.MapPoint.Longitude), d["MapPoint"]);
+        }
+        [TestMethod]
+        public void ObjectMapper_Map_Object_Dictionary_Object()
         {
             var mapper = new ObjectMapper();
 
@@ -551,6 +620,38 @@ namespace HigLabo.Mapper.Test
                     Assert.AreEqual(1, s1.Database_ID);
                 }
             }
+        }
+
+        [TestMethod]
+        public void ObjectMapper_Map_Dynamic_Object()
+        {
+            var mapper = new ObjectMapper();
+
+            dynamic u1 = new UserFlatten();
+            u1.Name = "User1";
+            u1.Int32 = 4;
+
+            var u2 = new User();
+            mapper.Map(u1, u2);
+
+            Assert.AreEqual(u2.Int32, u1.Int32);
+            Assert.AreEqual(u2.Name, u1.Name);
+        }
+        [TestMethod]
+        public void ObjectMapper_Map_ExpandObject_Object()
+        {
+            var mapper = new ObjectMapper();
+
+            var d = new ExpandoObject();
+            var g = Guid.NewGuid();
+            d.TryAdd("Int32", null);
+            d.TryAdd("Int32Nullable", null);
+            d.TryAdd("Guid", g);
+            d.TryAdd("GuidNullable", g);
+            var u1 = mapper.Map(d, new User());
+
+            Assert.AreEqual(g, u1.Guid);
+            Assert.AreEqual(g, u1.GuidNullable);
         }
 
         [TestMethod]

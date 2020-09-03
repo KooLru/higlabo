@@ -1,14 +1,17 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
+using System.Threading;
 
 namespace HigLabo.Core
 {
@@ -52,6 +55,11 @@ namespace HigLabo.Core
             public static bool operator !=(ActionKey left, ActionKey right)
             {
                 return !left.Equals(right);
+            }
+
+            public override string ToString()
+            {
+                return String.Format("{0} - {1}", this.Source.Name, this.Target.Name);
             }
         }
         private class MapperMethodAttribute : Attribute
@@ -332,15 +340,16 @@ namespace HigLabo.Core
             public Int32 Layer { get; set; } = 0;
         }
 
-        private static readonly Object _LockObject = new Object();
         private static readonly Dictionary<String, MethodInfo> _ParseMethodList = new Dictionary<string, MethodInfo>();
         private static readonly Dictionary<String, MethodInfo> _DictionaryMethodList = new Dictionary<string, MethodInfo>();
         private static readonly Dictionary<String, MethodInfo> _ParseOrNullMethodList = new Dictionary<string, MethodInfo>();
         private static readonly Dictionary<ActionKey, Boolean> _CanConvertList = new Dictionary<ActionKey, bool>();
+        private static readonly MethodInfo _ToStringMethod = typeof(Object).GetMethod("ToString");
+        private static readonly MethodInfo _ValueTypeToString = typeof(ObjectMapper).GetMethod("ValueTypeToString", BindingFlags.NonPublic | BindingFlags.Static);
 
         public static ObjectMapper Default { get; private set; } = new ObjectMapper();
 
-        private Dictionary<ActionKey, Delegate> _MapActionList = new Dictionary<ActionKey, Delegate>(100);
+        private IDictionary<ActionKey, Delegate> _MapActionList = new Dictionary<ActionKey, Delegate>(100);
 
         public CompilerSetting CompilerConfig { get; private set; } = new CompilerSetting();
 
@@ -434,68 +443,12 @@ namespace HigLabo.Core
         public TTarget Map<TSource, TTarget>(TSource source, TTarget target)
         {
             if (source == null || target == null) { return target; }
-            return this.Map(new ActionKey(source.GetType(), target.GetType()), source, target);
-        }
-        public Dictionary<String, Object> Map<TSource>(TSource source, Dictionary<String, Object> target)
-        {
-            if (source == null || target == null) { return target; }
-            return this.Map(new ActionKey(source.GetType(), target.GetType()), source, target);
-        }
-        public TTarget MapOrNull<TSource, TTarget>(TSource source, Func<TTarget> func)
-            where TTarget : class
-        {
-            if (source == null) { return null; }
-            return Map(source, func());
-        }
-        public TTarget MapOrNull<TSource, TTarget>(TSource source, TTarget target)
-            where TTarget: class
-        {
-            if (source == null) { return null; }
-            return Map(source, target);
-        }
-        public void AddPostAction<TSource, TTarget>(Action<TSource, TTarget> action)
-        {
-            var key = new ActionKey(typeof(TSource), typeof(TTarget));
-            if (_MapActionList.TryGetValue(key, out var defaultMapFunc) == false)
-            {
-                defaultMapFunc = CreateMapMethod(typeof(TSource), typeof(TTarget));
-                lock (_LockObject)
-                {
-                    _MapActionList[key] = defaultMapFunc;
-                }
-            }
-            Func<Object, Object, TTarget> newMapFunc = (source, target) =>
-            {
-                var t = ((Func<Object, Object, TTarget>)defaultMapFunc)(source, target);
-                action((TSource)source, (TTarget)target);
-                return t;
-            };
-            lock (_LockObject)
-            {
-                _MapActionList[key] = newMapFunc;
-            }
-        }
-        public void ReplaceMap<TSource, TTarget>(Func<TSource, TTarget, TTarget> func)
-        {
-            Func<Object, Object, TTarget> newMapFunc = (source, target) =>
-            {
-                return func((TSource)source, (TTarget)target);
-            };
-            lock (_LockObject)
-            {
-                _MapActionList[new ActionKey(typeof(TSource), typeof(TTarget))] = newMapFunc;
-            }
-        }
 
-        private TTarget Map<TSource, TTarget>(ActionKey key, TSource source, TTarget target)
-        {
+            var key = new ActionKey(source.GetType(), target.GetType());
             if (_MapActionList.TryGetValue(key, out var func) == false)
             {
                 func = CreateMapMethod(key.Source, key.Target);
-                lock (_LockObject)
-                {
-                    _MapActionList[key] = func;
-                }
+                _MapActionList[key] = func;
             }
 #if DEBUG
             return ((Func<Object, Object, TTarget>)func)(source, target);
@@ -517,6 +470,64 @@ namespace HigLabo.Core
             throw new InvalidOperationException();
 #endif
         }
+        public TTarget MapOrNull<TSource, TTarget>(TSource source, Func<TTarget> func)
+            where TTarget : class
+        {
+            if (source == null) { return null; }
+            return Map(source, func());
+        }
+        public TTarget MapOrNull<TSource, TTarget>(TSource source, TTarget target)
+            where TTarget: class
+        {
+            if (source == null) { return null; }
+            return Map(source, target);
+        }
+        public void AddPostAction<TSource, TTarget>(Action<TSource, TTarget> action)
+        {
+            var key = new ActionKey(typeof(TSource), typeof(TTarget));
+            if (_MapActionList.TryGetValue(key, out var defaultMapFunc) == false)
+            {
+                defaultMapFunc = CreateMapMethod(typeof(TSource), typeof(TTarget));
+                _MapActionList[key] = defaultMapFunc;
+            }
+            Func<Object, Object, TTarget> newMapFunc = (source, target) =>
+            {
+                var t = ((Func<Object, Object, TTarget>)defaultMapFunc)(source, target);
+                action((TSource)source, (TTarget)target);
+                return t;
+            };
+            _MapActionList[key] = newMapFunc;
+        }
+        public void ReplaceMap<TSource, TTarget>(Func<TSource, TTarget, TTarget> func)
+        {
+            Func<Object, Object, TTarget> newMapFunc = (source, target) =>
+            {
+                return func((TSource)source, (TTarget)target);
+            };
+            _MapActionList[new ActionKey(typeof(TSource), typeof(TTarget))] = newMapFunc;
+        }
+        /// <summary>
+        /// Set thread mode of Map method.
+        /// If you call this method, all customize by AddPostAction and ReplaceMap will be cleared.
+        /// So, you should call this method on initialization process of application.
+        /// 
+        /// ThreadMode.Performance is not thread safe.This mode may be used on desktop, console application.
+        /// ThreadMode.ThreadSafe is thread safe mode from multithreading environment like web application.
+        /// If Mode is ThreadMode.ThreadSafe, the performance goes a little bit worse.
+        /// It may be 10%-20% slower than ThreadMode.Performance when you call Map method.
+        /// This method will set ConcurrentDictionary to private _MapActionList field to manage action list.
+        /// Be careful that you must call this method before calling AddPostAction, ReplaceMap method.
+        /// </summary>
+        public void SetThreadMode(ThreadMode mode)
+        {
+            switch (mode)
+            {
+                case ThreadMode.Performance:_MapActionList = new Dictionary<ActionKey, Delegate>(100); break;
+                case ThreadMode.ThreadSafe:_MapActionList = new ConcurrentDictionary<ActionKey, Delegate>();break;
+                default:throw new InvalidOperationException();
+            }
+        }
+
         private Delegate CreateMapMethod(Type sourceType, Type targetType)
         {
             var lambda = CreateFunctionExpression(sourceType, targetType);
@@ -760,11 +771,9 @@ namespace HigLabo.Core
                 ee.Add(Expression.Assign(p.Target, Expression.TypeAs(targetParameter, targetType)));
             }
 
-            if (sourceType == typeof(Dictionary<String, String>) ||
-                sourceType == typeof(Dictionary<String, Object>))
+            if (sourceType.GetInterfaces().Any(el => el == typeof(IDictionary<String, String>) || el == typeof(IDictionary<String, Object>)))
             {
-                if (targetType == typeof(Dictionary<String, String>) ||
-                    targetType == typeof(Dictionary<String, Object>))
+                if (targetType.GetInterfaces().Any(el => el == typeof(IDictionary<String, String>) || targetType == typeof(IDictionary<String, Object>)))
                 {
                     var methodName = String.Format("MapDictionary_{0}_{1}"
                         , sourceType.GetGenericArguments()[1].Name
@@ -780,8 +789,7 @@ namespace HigLabo.Core
                     }
                 }
             }
-            else if (targetType == typeof(Dictionary<String, String>) ||
-                targetType == typeof(Dictionary<String, Object>))
+            else if (targetType.GetInterfaces().Any(el => el == typeof(IDictionary<String, String>) || el == typeof(IDictionary<String, Object>)))
             {
                 foreach (var item in CreateMapToDictionaryExpression(p))
                 {
@@ -872,7 +880,7 @@ namespace HigLabo.Core
                         }
                         else if (targetNullableGenericType.IsEnum)
                         {
-                            var parseMethod = _ParseMethodList[nameof(Enum)].MakeGenericMethod(targetNullableGenericType);
+                            var parseMethod = _ParseOrNullMethodList[nameof(Enum)].MakeGenericMethod(targetNullableGenericType);
                             var getTargetValueMethod = targetProperty.GetGetMethod();
                             var parse = Expression.Call(parseMethod, getMethod, Expression.Call(p.Target, getTargetValueMethod));
                             var body = Expression.Call(p.Target, setMethod, parse);
@@ -994,6 +1002,14 @@ namespace HigLabo.Core
                             , Expression.Convert(getMethod, targetProperty.PropertyType)));
                             ee.Add(ifThen);
                         }
+                        else if (targetProperty.PropertyType == typeof(String))
+                        {
+                            //If Premitive or Enum, convert to string
+                            var toStringMethod = sourceProperty.PropertyType.GetMethods().First(el => el.Name == "ToString");
+                            var ifThen = Expression.IfThen(Expression.NotEqual(getMethod, Expression.Constant(null, typeof(Object)))
+                                , Expression.Call(p.Target, setMethod, Expression.Call(getMethod, toStringMethod)));
+                            ee.Add(ifThen);
+                        }
                     }
                     else
                     {
@@ -1002,6 +1018,12 @@ namespace HigLabo.Core
                             var body = Expression.Call(p.Target, setMethod
                             , Expression.Convert(getMethod, targetProperty.PropertyType));
                             ee.Add(body);
+                        }
+                        else if (targetProperty.PropertyType == typeof(String))
+                        {
+                            //If Premitive or Enum, convert to string
+                            var toStringMethod = sourceProperty.PropertyType.GetMethods().First(el => el.Name == "ToString");
+                            ee.Add(Expression.Call(p.Target, setMethod, Expression.Call(getMethod, toStringMethod)));
                         }
                     }
                 }
@@ -1340,30 +1362,62 @@ namespace HigLabo.Core
             var sourceType = p.SourceType;
             var targetType = p.TargetType;
 
+            var addMethod = targetType.GetMethod("Add");
+
             var pp = CreatePropertyToDictionaryMapping(sourceType, targetType);
             foreach (var item in pp)
             {
-                var sourceProperty = item.Item1;
-                var targetProperty = item.Item2;
+                var sourceProperty = item.source;
+                var targetProperty = item.target;
                 if (sourceType.GetProperty(sourceProperty.Name) == null) { continue; }
                 MemberExpression getMethod = Expression.Property(p.Source, sourceProperty);
-                var addMethod = targetType.GetMethod("Add");
 
                 {
                     var removeMethod = targetType.GetMethod("Remove", new Type[] { typeof(String) });
                     var body = Expression.Call(p.Target, removeMethod, Expression.Constant(sourceProperty.Name));
                     ee.Add(body);
                 }
+
+                var dictionaryValueType = targetProperty.PropertyType;
                 if (sourceProperty.PropertyType.IsValueType)
                 {
-                    var body = Expression.Call(p.Target, addMethod, Expression.Constant(sourceProperty.Name)
-                        , Expression.TypeAs(getMethod, typeof(Object)));
-                    ee.Add(body);
+                    if (dictionaryValueType == typeof(Object))
+                    {
+                        var body = Expression.Call(p.Target, addMethod, Expression.Constant(sourceProperty.Name)
+                            , Expression.TypeAs(getMethod, typeof(Object)));
+                        ee.Add(body);
+                    }
+                    else if (dictionaryValueType == typeof(String))
+                    {
+                        if (sourceProperty.PropertyType.IsNullable())
+                        {
+                            var ifThen = Expression.IfThen(Expression.NotEqual(getMethod, Expression.Constant(null, typeof(Object)))
+                                , Expression.Call(p.Target, addMethod, Expression.Constant(sourceProperty.Name)
+                                , Expression.Call(Expression.TypeAs(getMethod, typeof(Object)), _ToStringMethod)));
+                            ee.Add(ifThen);
+                        }
+                        else
+                        {
+                            var body = Expression.Call(p.Target, addMethod, Expression.Constant(sourceProperty.Name)
+                                , Expression.Call(Expression.TypeAs(getMethod, typeof(Object)), _ToStringMethod));
+                            ee.Add(body);
+                        }
+                    }
                 }
                 else
                 {
-                    var body = Expression.Call(p.Target, addMethod, Expression.Constant(sourceProperty.Name), getMethod);
-                    ee.Add(body);
+                    if (dictionaryValueType == typeof(Object))
+                    {
+                        var body = Expression.Call(p.Target, addMethod, Expression.Constant(sourceProperty.Name), getMethod);
+                        ee.Add(body);
+                    }
+                    else if (dictionaryValueType == typeof(String))
+                    {
+                        var ifThen = Expression.IfThen(Expression.NotEqual(getMethod, Expression.Constant(null, typeof(Object)))
+                            , Expression.Call(p.Target, addMethod, Expression.Constant(sourceProperty.Name)
+                            , Expression.Call(getMethod, _ToStringMethod)));
+                        ee.Add(ifThen);
+                    }
                 }
             }
             LabelTarget returnTarget = Expression.Label();
@@ -1379,9 +1433,10 @@ namespace HigLabo.Core
         {
             var ee = new List<Expression>();
             var p = parameterList;
-            var sourceDictionaryValueType = sourceType.GetGenericArguments()[1];
+            var sourceTypeIDictionary = sourceType.GetInterface("IDictionary`2");
+            var sourceDictionaryValueType = sourceTypeIDictionary.GetGenericArguments()[1];
 
-            var containsKeyMethod = sourceType.GetMethod("ContainsKey", new Type[] { typeof(String) });
+            var containsKeyMethod = sourceTypeIDictionary.GetMethod("ContainsKey", new Type[] { typeof(String) });
             var tryGetMethod = typeof(ObjectMapper).GetMethod("TryGetValue", BindingFlags.NonPublic | BindingFlags.Static)
                 .MakeGenericMethod(sourceDictionaryValueType);
             var tryGetStringMethod = typeof(ObjectMapper).GetMethod("TryGetStringValue", BindingFlags.NonPublic | BindingFlags.Static)
@@ -1485,7 +1540,7 @@ namespace HigLabo.Core
             return ee;
         }
 
-        private static Dictionary<String, String> MapDictionary_String_String(Dictionary<String, String> source, Dictionary<String, String> target)
+        private static IDictionary<String, String> MapDictionary_String_String(IDictionary<String, String> source, IDictionary<String, String> target)
         {
             foreach (var key in source.Keys)
             {
@@ -1493,7 +1548,7 @@ namespace HigLabo.Core
             }
             return target;
         }
-        private static Dictionary<String, Object> MapDictionary_String_Object(Dictionary<String, String> source, Dictionary<String, Object> target)
+        private static IDictionary<String, Object> MapDictionary_String_Object(IDictionary<String, String> source, IDictionary<String, Object> target)
         {
             foreach (var key in source.Keys)
             {
@@ -1501,7 +1556,7 @@ namespace HigLabo.Core
             }
             return target;
         }
-        private static Dictionary<String, String> MapDictionary_Object_String(Dictionary<String, Object> source, Dictionary<String, String> target)
+        private static IDictionary<String, String> MapDictionary_Object_String(IDictionary<String, Object> source, IDictionary<String, String> target)
         {
             foreach (var key in source.Keys)
             {
@@ -1516,7 +1571,7 @@ namespace HigLabo.Core
             }
             return target;
         }
-        private static Dictionary<String, Object> MapDictionary_Object_Object(Dictionary<String, Object> source, Dictionary<String, Object> target)
+        private static IDictionary<String, Object> MapDictionary_Object_Object(IDictionary<String, Object> source, IDictionary<String, Object> target)
         {
             foreach (var key in source.Keys)
             {
@@ -1525,12 +1580,12 @@ namespace HigLabo.Core
             return target;
         }
 
-        private static TValue TryGetValue<TValue>(Dictionary<String, TValue> dictionary, String key)
+        private static TValue TryGetValue<TValue>(IDictionary<String, TValue> dictionary, String key)
         {
             if (dictionary.TryGetValue(key, out var value)) { return value; }
             return default(TValue);
         }
-        private static String TryGetStringValue<TValue>(Dictionary<String, TValue> dictionary, String key)
+        private static String TryGetStringValue<TValue>(IDictionary<String, TValue> dictionary, String key)
         {
             if (dictionary.TryGetValue(key, out var value))
             {
