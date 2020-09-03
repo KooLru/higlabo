@@ -91,7 +91,13 @@ namespace HigLabo.Net.Internal
                 {
                     if (bb[i] == AsciiCharCode.LineFeed.GetNumber())
                     {
-                        return false;
+                        if (i == size -1) //at end of buffer
+                            return false;
+                        else
+                        {
+                            _State = ParseState.TagValidating;
+                            tagIndex = 0;
+                        }
                     }
                     else { throw new DataTransferContextException(this); }
                 }
