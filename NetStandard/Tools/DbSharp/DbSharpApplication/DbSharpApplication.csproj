@@ -35,6 +35,9 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>Icon\DbSharp.ico</ApplicationIcon>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="BouncyCastle.Crypto, Version=1.8.3.0, Culture=neutral, PublicKeyToken=0e99375e54769942">
       <HintPath>..\packages\BouncyCastle.1.8.3.1\lib\BouncyCastle.Crypto.dll</HintPath>
@@ -255,6 +258,7 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Config\ImportObjectWindowStateInfo.cs" />
     <Compile Include="Windows\CopyResultSetWindow.xaml.cs">
       <DependentUpon>CopyResultSetWindow.xaml</DependentUpon>
     </Compile>
@@ -282,7 +286,7 @@
     <Compile Include="Windows\MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Windows\MainWindowState.cs" />
+    <Compile Include="Core\MainWindowState.cs" />
     <Compile Include="Windows\ManageConnectionStringWindow.xaml.cs">
       <DependentUpon>ManageConnectionStringWindow.xaml</DependentUpon>
     </Compile>
