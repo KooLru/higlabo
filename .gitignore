@@ -159,3 +159,5 @@ $RECYCLE.BIN/
 /NetStandard/Tools/DbSharp/packages
 /NetStandard/Tools/DbSharp/HigLabo.DbSharp.Sample/.vs/DbSharpSample
 /NetStandard/Tools/DbSharp/.vs/DbSharp.NetStandard/DesignTimeBuild
+NetFramework/.vs/
+*.csproj
