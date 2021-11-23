@@ -10,7 +10,9 @@ namespace HigLabo.DbSharp.MetaData
     {
         Unknown,
         Table,
-        StoredProcedure,
+        View,
         UserDefinedTableType,
+        StoredProcedure,
+        StoredFunction,
     }
 }

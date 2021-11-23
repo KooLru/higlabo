@@ -208,8 +208,16 @@
             s: this.second,
             f: this.milliSecond
         };
-        const v = dateFormat.replace(/(M+|d+|h+|H+|m+|s+|f+)/g, function (v) {
-            return ((v.length > 1 ? "0" : "") + z[v.slice(-1)]).slice(-2)
+        const v = dateFormat.replace(/(M+|d+|h+|H+|m+|s+|f+)/g, function (match) {
+            const length = match.length;
+            const f = match.slice(-1);
+            const v = z[match.slice(-1)];
+            if (f == 'f') {
+                return v;
+            }
+            else {
+                return ((match.length > 1 ? "0" : "") + v).slice(-2);
+            }
         });
 
         const fullYear = this.year.toString();
