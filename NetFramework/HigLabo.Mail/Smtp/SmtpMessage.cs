@@ -50,8 +50,10 @@ namespace HigLabo.Net.Smtp
             set { this.Headers.Priority = value; }
         }
         /// 宛先のメールアドレスのリストを取得します。
+        /// Gets a list of destination email addresses.
         /// <summary>
         /// 宛先のメールアドレスのリストを取得します。
+        /// Gets a list of destination email addresses.
         /// </summary>
         public List<MailAddress> To
         {
@@ -98,6 +100,11 @@ namespace HigLabo.Net.Smtp
             set { this.Headers.Subject = value; }
         }
         public ContentType ContentType { get; set; }
+        //{
+        //    //  Message content type stored in 0 Content
+        //    get { return _BodyTextContent.ContentType; }
+        //    set { _BodyTextContent.ContentType = value; }
+        //}
         public TransferEncoding ContentTransferEncoding
         {
             get { return this.Headers.ContentTransferEncoding; }
@@ -164,18 +171,20 @@ namespace HigLabo.Net.Smtp
         private void Initialize()
         {
             this.Headers = new SmtpMailHeaderCollection();
+            
             this._Contents = new List<SmtpContent>();
 
             this.Headers.Add("MIME-Version", "1.0");
 
             this.Date = DateTimeOffset.Now;
             this.Subject = "";
-            this.ContentType = new ContentType("multipart/mixed");
-            this.ContentType.Boundary = MimeWriter.GenerateBoundary();
+            //this.ContentType = new ContentType("multipart/mixed");
+            //this.ContentType.Boundary = MimeWriter.GenerateBoundary();
+            
             _BodyTextContent = new SmtpContent();
             this.Contents.Add(_BodyTextContent);
 
-            this.ContentType.CharsetEncoding = Default.ContentTypeCharsetEncoding;
+            //this.ContentType.CharsetEncoding = Default.ContentTypeCharsetEncoding;
             this.ContentTransferEncoding = Default.ContentTransferEncoding;
         }
 
@@ -186,6 +195,8 @@ namespace HigLabo.Net.Smtp
         public void SetBodyAsHtmlContent(String html)
         {
             _BodyTextContent.LoadHtml(html);
+            //ContentType = _BodyTextContent.ContentType;
+
         }
         /// <summary>
         /// 
@@ -196,8 +207,12 @@ namespace HigLabo.Net.Smtp
         {
             SmtpContent ct = null;
 
+            ContentType = new ContentType ("multipart/alternative");
+
             _BodyTextContent.ContentType.Value = "multipart/alternative";
             _BodyTextContent.Contents.Clear();
+
+            //ContentType = _BodyTextContent.ContentType;
 
             ct = new SmtpContent();
             ct.LoadText(text);
