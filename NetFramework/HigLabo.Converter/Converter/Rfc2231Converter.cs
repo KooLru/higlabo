@@ -91,6 +91,11 @@ namespace HigLabo.Converter
             //バイト配列を文字列に変換
             Byte[] bb2 = new Byte[ByteArrayIndex];
             Array.Copy(bb, 0, bb2, 0, ByteArrayIndex);
+#if !Pcl
+            //KOOLru
+            if (encoding == null)
+                return Encoding.ASCII.GetString(bb2);
+#endif
             return encoding.GetString(bb2);
         }
     }
