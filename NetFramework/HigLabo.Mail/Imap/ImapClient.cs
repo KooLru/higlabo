@@ -1240,23 +1240,40 @@ namespace HigLabo.Net.Imap
 
             return l;
         }
+        //KooL
         private String GetMessageText(String text)
         {
-            StringBuilder sb = new StringBuilder(text.Length);
-            StringReader sr = new StringReader(text);
-            String endOfLine = String.Format("{0} OK FETCH Completed", this.Tag);
-            Boolean isFirstLine = true;
-            while (true)
-            {
-                var line = sr.ReadLine();
-                if (isFirstLine == true && line.StartsWith("*") == true) { continue; }
-                if (line.StartsWith(")") == true) { continue; }
-                if (String.Equals(line, endOfLine, StringComparison.OrdinalIgnoreCase) == true) { break; }
-                sb.AppendLine(line);
-                if (sr.Peek() == -1) { break; }
-            }
-            return sb.ToString();
+            //GMail response
+            /*
+            * 8 FETCH (BODY[] {1477}
+            Delivered-To: 
+            .....
+            )
+            tag1 OK Success
+ 
+
+            //avinetmail
+* 1 FETCH (BODY[] {1263}
+Return-path: <JAOXMXS@adns.aero>
+.....
+
+)
+tag1 OK Completed
+
+
+             */
+            Regex messageRegex = new Regex(@"^\* \d+ FETCH \([^\r\n]*BODY\[\] \{\d+\}\r\n(?<msg>.*?)(?:\r\n FLAGS \([^\)]+\))?\)\r\n" + this.Tag + " OK"
+                , RegexOptions.Multiline | RegexOptions.Singleline);
+            Match m = messageRegex.Match(text);
+            if (m.Success)
+                return m.Groups["msg"].Value;
+            else
+                throw new MailClientException(text);
+
+            //original code
+            //У меня есть сомнения насчет уместности подобно реализации, потому как у писььма остаются куски вида tag1 OK Completed
         }
+        //KooLru
         /// <summary>
         /// 
         /// </summary>
