@@ -170,6 +170,8 @@ namespace HigLabo.Net.Smtp
                 case EmailServiceProvider.YahooMail: serverName = "smtp.mail.yahoo.com"; encryptedCommunication = SmtpEncryptedCommunication.Ssl; break;
                 case EmailServiceProvider.AolMail: serverName = "smtp.aol.com"; encryptedCommunication = SmtpEncryptedCommunication.Tls; break;
                 case EmailServiceProvider.ZohoMail: serverName = "smtp.zoho.com"; encryptedCommunication = SmtpEncryptedCommunication.Ssl; break;
+                case EmailServiceProvider.Yandex: serverName = "smtp.yandex.ru"; encryptedCommunication = SmtpEncryptedCommunication.Ssl; break;
+
                 default: throw new InvalidOperationException();
             }
             this.ServerName = serverName;
@@ -350,7 +352,7 @@ namespace HigLabo.Net.Smtp
             {
                 if (this.EnsureOpen() == SmtpConnectionState.Connected)
                 {
-                    rs = this.ExecuteEhlo();
+                    rs = this.ExecuteEhloAndHelo();
                     String s = rs.Message.ToUpper();
                     //SMTP認証に対応している場合
                     if (s.Contains("AUTH") == true)
@@ -417,6 +419,11 @@ namespace HigLabo.Net.Smtp
                 {
                     this._State = SmtpConnectionState.Authenticated;
                 }
+                else
+                {
+                    throw new SmtpAuthenticateException(rs.Message);
+                }
+
             }
             return this._State == SmtpConnectionState.Authenticated;
         }
@@ -473,6 +480,10 @@ namespace HigLabo.Net.Smtp
                 if (rs.StatusCode == SmtpCommandResultCode.AuthenticationSuccessful)
                 {
                     this._State = SmtpConnectionState.Authenticated;
+                }
+                else
+                {
+                    throw new SmtpAuthenticateException(rs.Message);
                 }
             }
             return this._State == SmtpConnectionState.Authenticated;
