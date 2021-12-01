@@ -133,7 +133,12 @@ namespace HigLabo.Net.Smtp
             //multipart | single in etk
             //ContentType ContentType = mg.ContentType;
             if (mg.Contents.Count != 1)
-                mg.ContentType.Value = "multipart/mixed";
+            {
+                if (mg.ContentType == null)
+                    mg.ContentType = new ContentType("multipart/mixed");
+                else
+                    mg.ContentType.Value = "multipart/mixed";
+            }
             else
                 mg.ContentType = mg.Contents[0].ContentType;
 
