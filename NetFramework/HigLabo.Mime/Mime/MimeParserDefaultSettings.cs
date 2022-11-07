@@ -15,6 +15,8 @@ namespace HigLabo.Mime
 
         public MimeParserDefaultSettings()
         {
+            //Verrrry laaaaarge header in Mail
+            //this.BufferSize = 32768;
             this.BufferSize = 12000;
             this.QuotedPrintableConverterBufferSize = 2000;
             this.Base64ConverterBufferSize = 20000;

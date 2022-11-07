@@ -165,6 +165,10 @@ namespace HigLabo.Mime
         }
         private unsafe void ReadFromStream(MimeStreamBuffer context)
         {
+            //
+            //                                String s = Encoding.ASCII.GetString(bodyBuffer.GetBodyArray());
+
+            //
             var buffer = this.GetBuffer();
             var stream = _Stream;
             var lastLineLength = 0;
@@ -179,6 +183,13 @@ namespace HigLabo.Mime
             {
                 filledLength = (Int32)(stream.Length - stream.Position);
             }
+            //else { 
+            //    //moved back to \r\n
+            //    //Buffer can contain onle part of boundary --Part
+            //    if (buffer[])
+            //
+            //}
+
             var readLength = stream.Read(buffer, 0, filledLength);
             if (lastLineLength > 0)
             {
@@ -494,7 +505,8 @@ namespace HigLabo.Mime
                     var p = pp[i];
                     if (p.IsEncoded == true)
                     {
-                        sb.Append(p.RawValue);
+                        //sb.Append(p.RawValue);
+                        sb.Append(p.Value); //value i strimmed \" RawValue
                         if (i == pp.Count - 1 || pp[i + 1].IsEncoded == false)
                         {
                             result.Append(_Rfc2231Converter.Decode(sb.ToString()));
@@ -595,6 +607,9 @@ namespace HigLabo.Mime
                             #region
                             {
                                 line = cx.ReadLine();
+
+                                //string s = Encoding.ASCII.GetString(line);
+
                                 if (line.Length == 0) { continue; }
                                 this.AddToRawData(line);
                                 if (line.Length == 2 && line[0] == 13 && line[1] == 10) { continue; }
@@ -663,6 +678,7 @@ namespace HigLabo.Mime
                             {
                                 var bodyLine = cx.ReadBody(boundary, out boundaryResult, out isEndOfBody);
                                 bodyBuffer.AddBodyLine(bodyLine);
+                                //String s = Encoding.ASCII.GetString(bodyBuffer.GetBodyArray());
                                 if (boundaryResult != CheckBoundaryResult.None || isEndOfBody == true)
                                 {
                                     this.SetMimeContentBody(mc, bodyBuffer);
