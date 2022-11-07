@@ -17,6 +17,9 @@ namespace HigLabo.Net.Internal
         }
         private Byte[] _TagBytes = null;
         private ParseState _State = ParseState.TagValidating;
+        //  tag1 can be split between read attempt into buffer
+        Int32 _tagIndex = 0;
+
         private Action<String> _EndGetResponseCallback = null;
         /// <summary>
         /// 
@@ -44,17 +47,16 @@ namespace HigLabo.Net.Internal
         protected override Boolean ParseBuffer(Int32 size)
         {
             Byte[] bb = this.Buffer;
-            Int32 tagIndex = 0;
 
             for (int i = 0; i < size; i++)
             {
                 this.Stream.WriteByte(bb[i]);
                 if (_State == ParseState.TagValidating)
                 {
-                    if (bb[i] == _TagBytes[tagIndex])
+                    if (bb[i] == _TagBytes[_tagIndex])
                     {
-                        tagIndex = tagIndex + 1;
-                        if (_TagBytes.Length == tagIndex)
+                        _tagIndex = _tagIndex + 1;
+                        if (_TagBytes.Length == _tagIndex)
                         {
                             _State = ParseState.LastLine;
                         }
@@ -75,8 +77,12 @@ namespace HigLabo.Net.Internal
                 {
                     if (bb[i] == AsciiCharCode.LineFeed.GetNumber())
                     {
-                        tagIndex = 0;
+                        _tagIndex = 0;
                         _State = ParseState.TagValidating;
+                    }
+                    else if (bb[i] == AsciiCharCode.CarriageReturn.GetNumber()) //CR after CR
+                    {
+                        _State = ParseState.CarriageReturn;
                     }
                     else { throw new DataTransferContextException(this); }
                 }
@@ -96,7 +102,7 @@ namespace HigLabo.Net.Internal
                         else
                         {
                             _State = ParseState.TagValidating;
-                            tagIndex = 0;
+                            _tagIndex = 0;
                         }
                     }
                     else { throw new DataTransferContextException(this); }
