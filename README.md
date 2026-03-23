@@ -1,12 +1,244 @@
-# higlabo
+# HigLabo
 HigLabo library provide features 
-1. Object Mapper(fastest in the world)
-2. DbSharp(DAL generator)
-3. And other.(Mail, Ftp, Rss, Twitter...etc)
+
+1. OpenAI client library
+2. Object Mapper(fastest in the world)
+3. DbSharp(DAL generator)
+4. And other.(Mail, Ftp, Rss, Twitter...etc)
 
 I added .NET Standard version at 2020/07/03.
 It was moved from https://github.com/higty/higlabo.netstandard repository.
 
+
+
+## HigLabo.OpenAI
+2025-03-14 Support Responses API endpoint, and web search, file search and more. 
+
+※Breaking change. The endpoint of ChatCompletions are all changed to ChatCompletionCreate. Please see latest sample code.
+https://github.com/higty/higlabo/blob/master/Net9/HigLabo.OpenAI.SampleConsoleApp/OpenAIPlayground.cs
+
+2025-10-08 updated. Support video generation by Sora2.
+
+2025-08-24 updated. Support conversation, eval, certificate endpoints.
+
+2025-01-22 updated. Support .NET9.
+
+2024-08-23 updated. Support administration api endpoint.
+
+2024-06-05 updated. Support vector store chunking strategy.
+
+2024-05-07 updated. Support usage information on chat completion.
+
+2024-04-22 updated. Support Groq. You can use llama, mixtral, gemma
+
+2024-04-20 updated. This release include fie search and vector store endpoint.
+
+2024-04-17 updated. This release include Batch endpoint.
+
+See article.
+https://www.codeproject.com/Articles/5372480/Csharp-OpenAI-library-that-support-Assistants-API
+
+See sample code.
+https://github.com/higty/higlabo/blob/master/Net8/HigLabo.OpenAI.SampleConsoleApp/OpenAIPlayground.cs
+
+Set up: HigLabo.OpenAI from Nuget, and also add HigLabo.Core, HigLabo.NewtonsoftJson.
+I test against latest version of these three packages.
+
+How to use? It is easy to use!
+```
+var cl = new OpenAIClient("API Key");
+var p = new ResponseCreateParameter();
+p.Model = "gpt-4o";
+p.Input.AddUserMessage($"How to enjoy coffee near by Shibuya? Please search shop list from web.");
+p.Tools = [];
+p.Tools.Add(new ToolObject("web_search_preview"));
+var result = new ResponseStreamResult();
+await foreach (string text in cl.ResponseCreateStreamAsync(p, result, CancellationToken.None))
+{
+    Console.Write(text);
+}
+foreach (var item in result.ContentList)
+{
+    if (item.Annotations != null)
+    {
+        foreach (var annotation in item.Annotations)
+        {
+            Console.WriteLine(annotation.Title);
+            Console.WriteLine(annotation.Url);
+        }
+    }
+}
+
+```
+
+```
+var cl = new OpenAIClient("API Key"); // OpenAI
+--var cl = new OpenAIClient(new AzureSettings("API KEY", "https://tinybetter-work-for-our-future.openai.azure.com/", "MyDeploymentName"));
+--var cl = new OpenAIClient(new GroqSettings("API Key")); // Groq, llama, mixtral, gemma
+var result = new ChatCompletionStreamResult();
+await foreach (string text in cl.ChatCompletionCreateStreamAsync("How to enjoy coffee?", "gpt-4", result, CancellationToken.None))
+{
+    Console.Write(text);
+}
+Console.WriteLine();
+Console.WriteLine("***********************");
+Console.WriteLine("Finish reason: " + result.GetFinishReason());
+```
+
+```
+var p = new RunCreateParameter();
+p.Assistant_Id = assistantId;
+p.Thread_Id = threadId;
+var result = new AssistantMessageStreamResult();
+await foreach (string text in cl.RunCreateStreamAsync(p, result, CancellationToken.None))
+{
+    Console.Write(text);
+}
+Console.WriteLine();
+// You can get each server sent event data by these property.
+Console.WriteLine(JsonConvert.SerializeObject(result.Thread));
+Console.WriteLine(JsonConvert.SerializeObject(result.Run));
+Console.WriteLine(JsonConvert.SerializeObject(result.RunStep));
+Console.WriteLine(JsonConvert.SerializeObject(result.Message));
+
+```
+
+Generate new image from other uploaded image and save generated image to local folder.
+```
+var p = new ResponseCreateParameter();
+p.Model = "gpt-5";
+p.Input.AddUserMessage("Please change this image to anime-inspired look style and generate new image.");
+p.Input[0].AddImage("image/png", File.ReadAllBytes(Path.Combine(Environment.CurrentDirectory, "Image", "Mt_Tsurugi.jpg")));
+p.Tools = [];
+p.Tools.Add(new Tool("image_generation"));
+
+Console.WriteLine("Generateing...");
+var res = await cl.ResponseCreateAsync(p, CancellationToken.None);
+foreach (var output in res.Output)
+{
+    switch (output.Type)
+    {
+        case "message":
+            foreach (var content in output.Content)
+            {
+                if (content.Type == "output_text")
+                {
+                    Console.WriteLine(content.Text);
+                }
+            }
+            break;
+        case "image_generation_call":
+            Console.WriteLine(output.Revised_Prompt);
+            var imageData = Convert.FromBase64String(output.Result);
+            var folderPath = Path.Combine(Environment.CurrentDirectory, "Generated");
+            if (Directory.Exists(folderPath))
+            {
+                Directory.CreateDirectory(folderPath);
+            }
+            var filePath = Path.Combine(Environment.CurrentDirectory, "Generated", $"Image_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.png");
+            File.WriteAllBytes(filePath, imageData);
+            Console.WriteLine("File is saved to");
+            Console.WriteLine(filePath);
+            break;
+        default: break;
+    }
+}
+```
+
+```
+var cl = OpenAIClient;
+
+var p = new VideoCreateParameter();
+p.Prompt = "A baby and a fluffy kitten playing together on a soft carpet in a sunlit living room, morning light streaming through curtains, natural colors, heartwarming and gentle atmosphere, cinematic depth of field, ultra-realistic style.";
+p.Model = "sora-2";
+var job = await cl.VideoCreateAsync(p);
+Console.WriteLine("Job started.");
+while (true)
+{
+    //10 seconds interval
+    Thread.Sleep(10 * 1000);
+
+    var res = await cl.VideoRetrieveAsync(job.Id);
+    if (res.Status == "completed")
+    {
+        var stream = await cl.VideoContentGetAsync(job.Id);
+        var filePath = Path.Combine(Environment.CurrentDirectory, $"video_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.mp4");
+        File.WriteAllBytes(filePath, stream.ToByteArray());
+        break;
+    }
+    else if (res.Status == "failed")
+    {
+        Console.WriteLine("Job failed.");
+        break;
+    }
+    else
+    {
+        Console.WriteLine($"{DateTimeOffset.Now.ChangeTimeZone(9).ToIso8601String()} Job status is " + res.Status + ". Waiting...");
+    }
+}
+```
+
+## HigLabo.GoogleAI
+2025-03-17 Support Imagen model image generation. You can generate image by imagen model.
+
+2025-03-15 Support Gemini2.0 Flash experimental model. You can generate image from code.
+
+2025-01-22 updated. Support .NET9.
+
+```
+var cl = new GoogleAIClient("API KEY");
+var p = new ModelsGenerateContentParameter();
+p.Model = ModelNames.Gemini_2_0_Flash_Exp;
+p.AddUserMessage("Hi, can you create a 3d rendered image of a cat with wings and a top hat flying over a happy futuristic scificity with lots of greenery?");
+p.GenerationConfig = new();
+p.GenerationConfig.ResponseModalities = ["Text", "Image"];
+p.Stream = false;
+
+var res = await cl.GenerateContentAsync(p);
+
+foreach (var candidate in res.Candidates)
+{
+    foreach (var part in candidate.Content.Parts)
+    {
+        if (part.Text != null)
+        {
+            Console.WriteLine(part.Text);
+        }
+        if (part.InlineData != null)
+        {
+            using (var stream = part.InlineData.GetStream())
+            {
+                using (var bitmap = new Bitmap(stream))
+                {
+                    string outputPath = Path.Combine(Environment.CurrentDirectory, "Image", $"GeneratedImage_{DateTimeOffset.Now.ToString("yyyyMMdd_HHmmss")}.jpg");
+                    bitmap.Save(outputPath, System.Drawing.Imaging.ImageFormat.Jpeg);
+                }
+            }
+        }
+    }
+}
+
+```
+
+
+## HigLabo.Anthropic
+HigLabo.Anthropic is a C# library of Anthropic Claude AI.
+2014-04-07 updated. It support tool feature.
+
+You can use it like this. Really easy and intuitive.
+```
+var cl = new AhtnropicClient("API KEY");
+var result = new MessagesStreamResult();
+await foreach (string text in cl.MessagesStreamAsync("How to enjoy coffee?", ModelNames.Claude3Opus, result, CancellationToken.None))
+{
+    Console.Write(text);
+}
+if (result.MessageDelta != null)
+{
+    Console.WriteLine("StopReason: " + result.MessageDelta.Delta.Stop_Reason);
+    Console.WriteLine("Usage: " + result.MessageDelta.Usage.Output_Tokens);
+}
+```
 
 ## HigLabo.Mapper
 A mapper library like AutoMapper,EmitMapper,FastMapper,ExpressMapper..etc.
@@ -17,48 +249,47 @@ You can map object out of box without configuration.
 You can also customize completely as you can with AddPostAction,ReplaceMap method.
 
 I completely rewrite HigLabo.Mapper. Now, HigLabo.Mapper is fastest mapper library in the world.
-Performance test at 2020/08/01.
-|                                   Method |         Mean |       Error |     StdDev |  Ratio | RatioSD |    Gen 0 |  Gen 1 | Gen 2 | Allocated |
-|----------------------------------------- |-------------:|------------:|-----------:|-------:|--------:|---------:|-------:|------:|----------:|
-|                  HandwriteMapper_Address |     7.552 us |   0.5069 us |  0.0278 us |   1.00 |    0.00 |   6.4163 |      - |     - |   40253 B |
-|              HigLaboObjectMapper_Address |    37.117 us |   3.9361 us |  0.2158 us |   4.92 |    0.04 |   7.6294 |      - |     - |   48000 B |
-|                          Mapster_Address |    41.172 us |   2.6546 us |  0.1455 us |   5.45 |    0.02 |   7.6294 |      - |     - |   48000 B |
-|                       AutoMapper_Address |   113.133 us |  25.1448 us |  1.3783 us |  14.98 |    0.23 |        - |      - |     - |         - |
-|                    ExpressMapper_Address |   123.352 us |  12.8851 us |  0.7063 us |  16.33 |    0.14 |  13.9160 |      - |     - |   88000 B |
-|                      AgileMapper_Address |   321.437 us |  36.6738 us |  2.0102 us |  42.57 |    0.39 |  82.0313 |      - |     - |  516803 B |
-|                       FastMapper_Address |   237.159 us |  16.1570 us |  0.8856 us |  31.40 |    0.16 |  59.8145 |      - |     - |  376000 B |
-|                       TinyMapper_Address |    82.067 us |   7.3080 us |  0.4006 us |  10.87 |    0.09 |  15.2588 |      - |     - |   96000 B |
-|           HigLaboObjectMapper_AddressDTO |    34.635 us |   3.0237 us |  0.1657 us |   4.59 |    0.04 |   6.3477 |      - |     - |   40000 B |
-|                       Mapster_AddressDTO |    37.624 us |   5.9133 us |  0.3241 us |   4.98 |    0.06 |   6.3477 |      - |     - |   40000 B |
-|                    AutoMapper_AddressDTO |   121.693 us |   8.5257 us |  0.4673 us |  16.11 |    0.11 |   6.3477 |      - |     - |   40000 B |
-|                 ExpressMapper_AddressDTO |   127.495 us |  28.0275 us |  1.5363 us |  16.88 |    0.26 |  12.6953 |      - |     - |   80000 B |
-|                   AgileMapper_AddressDTO |   159.150 us |  62.7304 us |  3.4385 us |  21.07 |    0.43 |  48.3398 |      - |     - |  304000 B |
-|                    FastMapper_AddressDTO |   230.696 us |  53.7239 us |  2.9448 us |  30.55 |    0.35 |  59.8145 |      - |     - |  376000 B |
-|                    TinyMapper_AddressDTO |    70.651 us |   4.1426 us |  0.2271 us |   9.36 |    0.05 |  13.9160 |      - |     - |   88000 B |
-|             HigLaboObjectMapper_Customer |    88.213 us |  12.1313 us |  0.6650 us |  11.68 |    0.11 |  47.1191 |      - |     - |  296000 B |
-|                         Mapster_Customer |   861.706 us |  69.4256 us |  3.8055 us | 114.11 |    0.32 |  64.4531 |      - |     - |  408000 B |
-|                      AutoMapper_Customer |   270.586 us |  50.3047 us |  2.7574 us |  35.83 |    0.49 |  35.6445 |      - |     - |  224000 B |
-|                   ExpressMapper_Customer |   344.622 us | 229.5338 us | 12.5815 us |  45.63 |    1.63 | 106.9336 | 0.4883 |     - |  673852 B |
-|                     AgileMapper_Customer | 2,000.527 us | 150.7667 us |  8.2640 us | 264.91 |    2.03 | 535.1563 | 3.9063 |     - | 3376268 B |
-|                      FastMapper_Customer | 1,314.517 us | 977.0347 us | 53.5546 us | 174.05 |    6.48 | 232.4219 |      - |     - | 1465848 B |
-|                      TinyMapper_Customer | 1,688.700 us |  90.1517 us |  4.9415 us | 223.62 |    1.39 | 158.2031 |      - |     - |  993850 B |
-|     HandwriteMapper_Customer_CustomerDTO |    86.716 us |  10.3637 us |  0.5681 us |  11.48 |    0.04 |  62.7441 | 0.2441 |     - |  393851 B |
-| HigLaboObjectMapper_Customer_CustomerDTO |   137.967 us |  36.1755 us |  1.9829 us |  18.27 |    0.29 |  76.4160 |      - |     - |  480000 B |
-|             Mapster_Customer_CustomerDTO |   263.971 us |  40.1365 us |  2.2000 us |  34.95 |    0.17 |  76.1719 |      - |     - |  480000 B |
-|          AutoMapper_Customer_CustomerDTO |   280.642 us |  15.2435 us |  0.8355 us |  37.16 |    0.06 |  68.8477 |      - |     - |  432000 B |
 
-HigLabo.Mapper (version3.0.0 or later) is used expression tree.
+Performance test at 2024/02/02.
+![image](https://github.com/higty/higlabo/assets/10071037/a739220e-605f-44dd-bf60-b0d4784fe76c)
+Note) Mapperly is fast because it does not create new instance. That only pass reference. It does not map property values. Mapperly looks fastest but it is not on the test Address, Customer.
+HigLabo.Mapper is fastest than any other library. Only Address to AddressDTO is slower than Mapperly.
 
-For backward compatibility, old version HigLabo.Mapper is moved to HigLabo.Mapper.ObjectMapConfig.
+
+HigLabo.Mapper (version3.0.0 or later) is used expression tree. It generate il code on runtime, so it is nealy fast as handy code.
 
 
 ## DbSharp
+2025-02-04 Refine DbSharpApplication.
+
 A code generator to call stored procedure on database(SQL server, MySQL)
+
+Article
+https://www.higlabo.ai/blog/higty-tech/dbsharpapplication-japanese-tutorial
 
 https://www.codeproject.com/Articles/776811/DbSharp-DAL-Generator-Tool-on-NET-Core
 
+Download link for DbSharpApplication (version: 9.1.0.1)
+https://static.tinybetter.com/higlabo/DbSharpApplication/DbSharpApplication_9_1_0_1.zip
+
+
+## HigLabo.Web
+RazorRenderer class get html from .cshtml file.
+
+You can use it by 
+```Program.cs
+var builder = WebApplication.CreateBuilder(args);
+var services = builder.Services;
+services.AddHttpContextAccessor();
+services.AddScoped<RazorRenderer>();
+
+var app = builder.Build();
+app.MapGet("/portal", (RazorRenderer renderer) => await context.WriteHtmlAsync("/Pages/Portal.cshtml"));
+app.MapGet("/task/list", (RazorRenderer renderer) => await context.WriteHtmlAsync("/Pages/TaskList.cshtml", new TaskListModel()));
+```
+
 ## HigLabo.Mime
-A library of Mime parser.World fastest parser of MIME.It is used for HigLabo.Mail.
+A library of Mime parser. Fastest parser in the world for MIME format. It is used for HigLabo.Mail.
 
 ## HigLabo.Mail
 A mail library of SMTP,POP3,IMAP.
@@ -72,15 +303,6 @@ A library for database access.
 
 ## HigLabo.Converter
 Converter library for Base64,QueryString,QuotedPrintable,Rfc2047,ModifiedUtf7,ISO8601...etc.
-
-## HigLabo.Bot.Facebook
-A library to call Facebook Messenger API.
-
-## HigLabo.Bot.LINE
-A library to call LINE API.LINE is most used messaging app in Japan.
-
-## HigLabo.Csv
-CsvWriter libary.This library does not include CsvReader library.
 
 
 

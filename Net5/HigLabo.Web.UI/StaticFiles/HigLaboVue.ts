@@ -4,12 +4,18 @@ import { $ } from "./HtmlElementQuery.js";
 
 export class HigLaboVue {
     public static formatMethods = {
+        numberFormat: HigLaboVue.numberFormat,
+        currencyFormat: HigLaboVue.currencyFormat,
         dateFormat: HigLaboVue.dateFormat,
         encodeURI: HigLaboVue.encodeURI,
         encodeURIComponent: HigLaboVue.encodeURIComponent,
         decodeURI: HigLaboVue.decodeURI,
         decodeURIComponent: HigLaboVue.decodeURIComponent,
     };
+    public static defaultSettings = {
+        culture: "ja-JP",
+        currency: "JPY",
+    }
 
     private static createApp(templateID: string, data: any) {
         var template = document.getElementById(templateID);
@@ -87,6 +93,26 @@ export class HigLaboVue {
         }
     }
 
+    public static numberFormat(value, culture: string) {
+        if (value == null) { return ""; }
+        if (culture == null) { culture = HigLaboVue.defaultSettings.culture; }
+        const f = new Intl.NumberFormat(culture);
+        return f.format(value);
+    }
+    public static currencyFormat(value, culture: string, currency: string) {
+        if (value == null) { return ""; }
+        if (culture == null) { culture = HigLaboVue.defaultSettings.culture; }
+        if (currency == null) { currency = HigLaboVue.defaultSettings.currency; }
+        const f = new Intl.NumberFormat(culture, {
+            style: "currency",
+            currency: currency
+        });
+        return f.format(value);
+    }
+    public static dateFormat(value, format: string) {
+        if (value == null) { return ""; }
+        return new DateTime(new Date(value)).toString(format);
+    }
     public static encodeURI(value) {
         if (value == null) { return ""; }
         return encodeURI(value);
@@ -102,10 +128,6 @@ export class HigLaboVue {
     public static decodeURIComponent(value) {
         if (value == null) { return ""; }
         return decodeURIComponent(value);
-    }
-    public static dateFormat(value, format: string) {
-        if (value == null) { return ""; }
-        return new DateTime(new Date(value)).toString(format);
     }
 
 }

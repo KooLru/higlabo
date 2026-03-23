@@ -10,6 +10,7 @@ namespace HigLabo.Core
     {
         private static readonly String System_Collections_Generic_Dictionary = "System.Collections.Generic.Dictionary";
         private static readonly String System_Collections_Generic_ICollection_1 = "System.Collections.Generic.ICollection`1";
+        private static readonly String System_Collections_Generic_IList_1 = "System.Collections.Generic.IList`1";
         private static readonly String System_Collections_Generic_IEnumerable_1 = "System.Collections.Generic.IEnumerable`1";
 
         public static Type[] GetBaseClasses(this Type type)
@@ -24,7 +25,7 @@ namespace HigLabo.Core
             }
             return l.ToArray();
         }
-        public static PropertyInfo GetIndexerProperty(this Type type)
+        public static PropertyInfo? GetIndexerProperty(this Type type)
         {
             var a = type.GetCustomAttributes<DefaultMemberAttribute>().FirstOrDefault();
             if (a is null) { return null; }
@@ -33,22 +34,27 @@ namespace HigLabo.Core
         }
         public static Boolean IsDictionary(this Type type)
         {
-            return type.FullName.StartsWith(System_Collections_Generic_Dictionary) ||
-                type.GetInterfaces().Any(tp => tp.FullName.StartsWith(System_Collections_Generic_Dictionary));
+            return type.FullName!.StartsWith(System_Collections_Generic_Dictionary) ||
+                type.GetInterfaces().Any(tp => tp.FullName!.StartsWith(System_Collections_Generic_Dictionary));
         }
         public static Boolean IsIEnumerableT(this Type type)
         {
-            return type.FullName.StartsWith(System_Collections_Generic_IEnumerable_1) ||
-                type.GetInterfaces().Any(tp => tp.FullName.StartsWith(System_Collections_Generic_IEnumerable_1));
+            return type.FullName!.StartsWith(System_Collections_Generic_IEnumerable_1) ||
+                type.GetInterfaces().Any(tp => tp.FullName!.StartsWith(System_Collections_Generic_IEnumerable_1));
         }
         public static Boolean IsICollectionT(this Type type)
         {
-            return type.FullName.StartsWith(System_Collections_Generic_ICollection_1) ||
-                type.GetInterfaces().Any(tp => tp.FullName.StartsWith(System_Collections_Generic_ICollection_1));
+            return type.FullName!.StartsWith(System_Collections_Generic_ICollection_1) ||
+                type.GetInterfaces().Any(tp => tp.FullName!.StartsWith(System_Collections_Generic_ICollection_1));
+        }
+        public static Boolean IsIListT(this Type type)
+        {
+            return type.FullName!.StartsWith(System_Collections_Generic_IList_1) ||
+                type.GetInterfaces().Any(tp => tp.FullName!.StartsWith(System_Collections_Generic_IList_1));
         }
         public static Boolean IsNullable(this Type type)
         {
-            return type.FullName.StartsWith("System.Nullable`1[");
+            return type.FullName!.StartsWith("System.Nullable`1[");
         }
         public static Boolean IsNumber(Type type)
         {
@@ -70,3 +76,5 @@ namespace HigLabo.Core
         }
     }
 }
+
+
