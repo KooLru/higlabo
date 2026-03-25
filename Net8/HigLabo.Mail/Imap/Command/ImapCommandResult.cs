@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Text.RegularExpressions;
+using System.Text;
 using HigLabo.Net.Mail;
 
 namespace HigLabo.Net.Imap;
@@ -8,18 +8,22 @@ namespace HigLabo.Net.Imap;
 /// </summary>
 public class ImapCommandResult
 {
-    private String _Text = "";
+    private byte[]? _Data = null;
     private ImapCommandResultStatus _Status = ImapCommandResultStatus.None;
     /// <summary>
-		/// 
-		/// </summary>
+    /// 
+    /// </summary>
     public String Text
     {
-        get { return this._Text; }
+        get { return Encoding.ASCII.GetString(_Data); }
     }
-		/// <summary>
-		/// 
-		/// </summary>
+    public byte[]? Data
+    {
+        get { return _Data; }
+    }
+    /// <summary>
+    /// 
+    /// </summary>
     public ImapCommandResultStatus Status
     {
         get { return this._Status; }
@@ -29,28 +33,82 @@ public class ImapCommandResult
     /// </summary>
     /// <param name="tag"></param>
     /// <param name="text"></param>
-    public ImapCommandResult(String tag, String text)
+    public ImapCommandResult (string tag, byte[] arr)
     {
-        this._Text = text;
-        var rx = new Regex(@"^" + tag + " (OK|NO|BAD) .*$", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-        Match m = rx.Match(text);
-        String response = m.Groups[1].Value;
-        if (String.Equals(response, "OK", StringComparison.OrdinalIgnoreCase) == true)
+        if (arr == null || arr.Length == 0 || string.IsNullOrEmpty(tag))
+            return;
+        
+        _Data = arr;
+        // Last line
+        int lineStart = FindLastLineStart(arr);
+        if (lineStart < 0)
+            return;
+        
+        // tag to bytes
+        byte[] tagBytes = Encoding.ASCII.GetBytes(tag);
+        
+        // End with "tag"
+        for (int i = 0; i < tagBytes.Length; i++)
         {
-            this._Status = ImapCommandResultStatus.Ok;
+            if (lineStart + i >= arr.Length || arr[lineStart + i] != tagBytes[i])
+                return ;
         }
-        else if (String.Equals(response, "NO", StringComparison.OrdinalIgnoreCase) == true)
+        
+        // space tag after
+        int pos = lineStart + tagBytes.Length;
+        if (pos >= arr.Length || arr[pos] != ' ')
+            return ;
+        
+        pos++; // skip space
+        
+        // OK
+        if (pos + 1 < arr.Length)
         {
-            this._Status = ImapCommandResultStatus.No;
+            if ((arr[pos] == 'O' || arr[pos] == 'o') && 
+                (arr[pos + 1] == 'K' || arr[pos + 1] == 'k'))
+            {
+                this._Status = ImapCommandResultStatus.Ok;
+                return ;
+            }
+            
+            // NO
+            if ((arr[pos] == 'N' || arr[pos] == 'n') && 
+                (arr[pos + 1] == 'O' || arr[pos + 1] == 'o'))
+            {
+                this._Status = ImapCommandResultStatus.No;
+                return ;
+            }
+            
+            // BAD
+            if (pos + 2 < arr.Length &&
+                (arr[pos] == 'B' || arr[pos] == 'b') && 
+                (arr[pos + 1] == 'A' || arr[pos + 1] == 'a') &&
+                (arr[pos + 2] == 'D' || arr[pos + 2] == 'd'))
+            {
+                this._Status = ImapCommandResultStatus.Bad;
+                return ;
+            }
         }
-        else if (String.Equals(response, "BAD", StringComparison.OrdinalIgnoreCase) == true)
+    }
+
+    private int FindLastLineStart(byte[] arr)
+    {
+        // End last line
+        int pos = arr.Length - 1;
+        while (pos >= 0 && (arr[pos] == '\n' || arr[pos] == '\r'))
         {
-            this._Status = ImapCommandResultStatus.Bad;
+            pos--;
         }
-        else
+        
+        if (pos < 0)
+            return -1;
+        
+        // Start line
+        while (pos >= 0 && arr[pos] != '\n' && arr[pos] != '\r')
         {
-            this._Status = ImapCommandResultStatus.None;
+            pos--;
         }
-        this._Text = text;
+        
+        return pos + 1;
     }
 }
