@@ -40,6 +40,16 @@ public class ContentType
     public String MainValue { get; private set; } = "";
     public String SubValue { get; private set; } = "";
     public String Boundary { get; set; } = "";
+    public byte[] BoundaryBytes 
+    { 
+        get 
+        {
+            if (String.IsNullOrEmpty(Boundary))
+                return null;
+            else
+                return Encoding.ASCII.GetBytes(Boundary);
+        }
+    }       
     public String Charset
     {
         get

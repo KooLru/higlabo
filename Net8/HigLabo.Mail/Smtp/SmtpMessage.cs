@@ -68,7 +68,7 @@ public class SmtpMessage
         get { return this.Headers.Subject; }
         set { this.Headers.Subject = value; }
     }
-    public ContentType ContentType { get; set; } = new ContentType("multipart/mixed");
+    public ContentType ContentType { get; set; } //= new ContentType("multipart/mixed");
     public TransferEncoding ContentTransferEncoding
     {
         get { return this.Headers.ContentTransferEncoding; }
@@ -116,10 +116,10 @@ public class SmtpMessage
 
         this.Date = DateTimeOffset.Now;
         this.Subject = "";
-        this.ContentType.Boundary = MimeWriter.GenerateBoundary();
+        //this.ContentType.Boundary = MimeWriter.GenerateBoundary();
         this.Contents.Add(_BodyTextContent);
 
-        this.ContentType.CharsetEncoding = Default.ContentTypeCharsetEncoding;
+        //this.ContentType.CharsetEncoding = Default.ContentTypeCharsetEncoding;
         this.ContentTransferEncoding = Default.ContentTransferEncoding;
     }
 
@@ -129,6 +129,8 @@ public class SmtpMessage
     }
     public void SetBodyAsAlternativeContent(String text, String html)
     {
+        ContentType = new ContentType ("multipart/alternative");
+
         _BodyTextContent.ContentType.Value = "multipart/alternative";
         _BodyTextContent.Contents.Clear();
 

@@ -25,6 +25,7 @@ public class MimeWriter
         public static readonly Byte[] NewLineTab = new Byte[] { 13, 10, 9 };
         public static readonly Byte[] NewLineSpace = new Byte[] { 13, 10, 32 };
         public static readonly Byte[] ColonSpace = new Byte[] { 58, 32 };
+        public static readonly Byte[] BoundaryStart = new Byte[] { 45, 45 }; //--
         public static readonly Byte[] Charset = GetAsciiBytes("charset=");
         public static readonly Byte[] Boundary = GetAsciiBytes("boundary=");
         public static readonly Byte[] EndOfEncodedHeaderBytes = GetAsciiBytes("?=");
@@ -128,23 +129,40 @@ public class MimeWriter
         {
             throw new InvalidOperationException("You must set HeaderEncoding property of MimeWriter object.");
         }
-        if (mg.ContentType == null)
+        // if (mg.ContentType == null)
+        // {
+        //     throw new InvalidOperationException("You must set ContentType property of SmtpMessage object.");
+        // }
+        //multipart | single in etk
+        //ContentType ContentType = mg.ContentType;
+        if (mg.Contents.Count != 1)
         {
-            throw new InvalidOperationException("You must set ContentType property of SmtpMessage object.");
+            if (mg.ContentType == null)
+                mg.ContentType = new ContentType("multipart/mixed");
+            else
+                mg.ContentType.Value = "multipart/mixed";
         }
+        else
+            mg.ContentType = mg.Contents[0].ContentType;
 
-        if (mg.Contents.Count > 0 && String.IsNullOrEmpty(mg.ContentType.Boundary) == true)
-        {
+        if ((mg.ContentType.IsMultipart) && (String.IsNullOrEmpty(mg.ContentType.Boundary)))
             mg.ContentType.Boundary = MimeWriter.GenerateBoundary();
-        }
+
+
 #if !NETFX_CORE
         if (this.DkimSignatureGenerator != null)
         {
             this.AddDkimSignatureHeader(mg);
         }
 #endif
+
         foreach (var header in mg.Headers)
         {
+            //Content-Transfer-Encoding not need for multipart messages
+            if (mg.ContentType.IsMultipart &&
+                header.Key.Equals("Content-Transfer-Encoding", StringComparison.InvariantCultureIgnoreCase))
+                continue;
+
             this.WriteHeader(stream, header.Key, header.Value);
         }
         //TO
@@ -191,17 +209,15 @@ public class MimeWriter
             this.WriteHeader(stream, header.Key, header.Value);
         }
 
-        if (ct.ContentType.IsMultipart == true && String.IsNullOrEmpty(ct.ContentType.Boundary) == true)
-        {
-            ct.ContentType.Boundary = MimeWriter.GenerateBoundary();
-        }
-        this.WriteEncodedHeader(stream, ct.ContentType);
-        this.WriteEncodedHeader(stream, ct.ContentDisposition);
-
-        stream.Write(ByteData.NewLine);
-
         if (ct.ContentType.IsMultipart == true)
         {
+            if (String.IsNullOrEmpty(ct.ContentType.Boundary) == true)
+                ct.ContentType.Boundary = MimeWriter.GenerateBoundary();
+            this.WriteEncodedHeader(stream, ct.ContentType);
+            this.WriteEncodedHeader(stream, ct.ContentDisposition);
+
+            stream.Write(ByteData.NewLine);
+
             var boundary = ct.ContentType.CharsetEncoding.GetBytes("--" + ct.ContentType.Boundary + "\r\n");
             for (int i = 0; i < ct.Contents.Count; i++)
             {
@@ -213,39 +229,60 @@ public class MimeWriter
         }
         else
         {
-            if (ct.ContentType.IsText == true && String.IsNullOrEmpty(ct.BodyText) == false)
+            foreach (var header in ct.Headers)
             {
-                this.WriteEncodedBodyText(stream, ct.BodyText, ct.ContentTransferEncoding, ct.ContentType.CharsetEncoding, 74);
+                //rfc1341 7.2
+                //skip all headers, that not begin with Content-
+                if (!header.Key.StartsWith("Content-", StringComparison.InvariantCultureIgnoreCase))
+                    continue;
+
+                this.WriteHeader(stream, header.Key, header.Value);
             }
-            else if (ct.BodyData != null)
+            this.WriteEncodedHeader(stream, ct.ContentType);
+            this.WriteEncodedHeader(stream, ct.ContentDisposition);
+
+            stream.Write(ByteData.NewLine);
+
+            WritePart(stream, ct);
+        }
+    }
+    private void WritePart(Stream stream, SmtpContent content)
+    {
+        var ct = content;
+        
+        if (ct.ContentType.IsText == true && String.IsNullOrEmpty(ct.BodyText) == false)
+        {
+            this.WriteEncodedBodyText(stream, ct.BodyText, ct.ContentTransferEncoding, ct.ContentType.CharsetEncoding, 74);
+        }
+        else if (ct.BodyData != null)
+        {
+            switch (ct.ContentTransferEncoding)
             {
-                switch (ct.ContentTransferEncoding)
-                {
-                    case TransferEncoding.Base64:
-                        {
-                            var converter = new Base64Converter(ct.BodyData.Length);
-                            var bb = converter.Encode(ct.BodyData);
-                            stream.Write(bb, 0, bb.Length);
-                            stream.Write(ByteData.NewLine);
-                        }
-                        break;
-                    case TransferEncoding.QuotedPrintable:
-                        {
-                            var converter = new QuotedPrintableConverter(ct.BodyData.Length, QuotedPrintableConvertMode.Default);
-                            var bb = converter.Encode(ct.BodyData);
-                            stream.Write(bb, 0, bb.Length);
-                            stream.Write(ByteData.NewLine);
-                        }
-                        break;
-                    case TransferEncoding.None:
-                    case TransferEncoding.SevenBit:
-                    case TransferEncoding.EightBit:
-                    case TransferEncoding.Binary:
-                    default: throw new InvalidOperationException();
-                }
+                case TransferEncoding.Base64:
+                    {
+                        var converter = new Base64Converter(ct.BodyData.Length);
+                        var bb = converter.Encode(ct.BodyData);
+                        stream.Write(bb, 0, bb.Length);
+                        stream.Write(ByteData.NewLine);
+                    }
+                    break;
+                case TransferEncoding.QuotedPrintable:
+                    {
+                        var converter = new QuotedPrintableConverter(ct.BodyData.Length, QuotedPrintableConvertMode.Default);
+                        var bb = converter.Encode(ct.BodyData);
+                        stream.Write(bb, 0, bb.Length);
+                        stream.Write(ByteData.NewLine);
+                    }
+                    break;
+                case TransferEncoding.None:
+                case TransferEncoding.SevenBit:
+                case TransferEncoding.EightBit:
+                case TransferEncoding.Binary:
+                default: throw new InvalidOperationException();
             }
         }
     }
+
 
     public void AddDkimSignatureHeader(SmtpMessage message)
     {
@@ -319,7 +356,23 @@ public class MimeWriter
         stream.WriteByte(59);// ;
         stream.Write(ByteData.NewLine);
 
-        if (header.CharsetEncoding != null)
+            if (String.IsNullOrEmpty(header.Boundary) == false)
+        {
+            stream.WriteByte(9);// Tab
+            stream.Write(ByteData.Boundary);
+            stream.WriteByte(34);// "
+            stream.Write(GetAsciiBytes(header.Boundary));
+            stream.WriteByte(34);// "
+            stream.WriteByte(59);// ;
+            stream.Write(ByteData.NewLine);
+        }
+
+            //for multipart messages only content-type and boundary are need
+            //  rfc1341 7.2.1 Multipart: The common syntax
+            if (header.IsMultipart)
+                return;
+
+            if (header.CharsetEncoding != null) 
         {
             stream.WriteByte(9);// Tab
             stream.Write(ByteData.Charset);
@@ -330,15 +383,7 @@ public class MimeWriter
             stream.Write(ByteData.NewLine);
         }
 
-        if (String.IsNullOrEmpty(header.Boundary) == false)
-        {
-            stream.WriteByte(9);// Tab
-            stream.Write(ByteData.Boundary);
-            stream.WriteByte(34);// "
-            stream.Write(GetAsciiBytes(header.Boundary));
-            stream.WriteByte(34);// "
-            stream.Write(ByteData.NewLine);
-        }
+
         if (String.IsNullOrEmpty(header.Name) == false)
         {
             if (this.FileNameEncoding == Smtp.FileNameEncoding.BestEffort)
@@ -694,25 +739,44 @@ public class MimeWriter
         var mg = message;
 
         if (mg.Contents.Count == 0)
-        {
             throw new NotImplementedException();
-        }
-        else
+
+        //  Singlepart message, without boundary
+        if (!mg.ContentType.IsMultipart && (mg.Contents.Count == 1)) 
         {
-            if (mg.ContentType.CharsetEncoding == null)
-            {
-                throw new InvalidOperationException("You must set CharsetEncoding property of ContentType property of SmtpMessage object.");
-            }
+            SmtpContent ct = mg.Contents[0];
+
+            ct.ContentTransferEncoding = mg.ContentTransferEncoding;
+            ct.ContentType.CharsetEncoding = mg.ContentType.CharsetEncoding;
             
-            var boundary = mg.ContentType.CharsetEncoding.GetBytes("--" + mg.ContentType.Boundary);
-            for (int i = 0; i < mg.Contents.Count; i++)
-            {
-                stream.Write(boundary);
+            WritePart(stream, ct);
+        }
+
+        else    //  Multipart
+        {
+                List<SmtpContent> contents = mg.Contents;
+                //for "alternative @ we not need additional boundary
+                if (mg.Contents.Count == 1) //alternative 
+                    contents = mg.Contents[0].Contents;
+                    
+                //string s = Encoding.ASCII.GetString((stream as MemoryStream).ToArray());
+
+                foreach (var c in contents)
+                {
+                    //--boundary\r\n
+                    stream.Write(ByteData.BoundaryStart);
+                    stream.Write(mg.ContentType.BoundaryBytes);
                 stream.Write(ByteData.NewLine);
 
-                Write(stream, mg.Contents[i]);
-            }
-            stream.Write(mg.ContentType.CharsetEncoding.GetBytes("--" + mg.ContentType.Boundary + "--\r\n"));
+                    Write(stream, c);
+                }
+
+                //s = Encoding.ASCII.GetString((stream as MemoryStream).ToArray());
+
+                stream.Write(ByteData.BoundaryStart);
+                stream.Write(mg.ContentType.BoundaryBytes);
+                stream.Write(ByteData.BoundaryStart);
+                stream.Write(ByteData.NewLine);
         }
     }
     private void WriteEncodedBodyText(Stream stream, String value, TransferEncoding encodeType, Encoding encoding, Int32 maxCharCount)
