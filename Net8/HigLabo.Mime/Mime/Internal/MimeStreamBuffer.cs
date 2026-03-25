@@ -163,7 +163,11 @@ internal unsafe class MimeStreamBuffer
                     _LastLine = MimeParser.CreateNewBytes(new IntPtr(this._Start), this._End - this._Start);
                     return _EmptyBytes;
                 }
-                return MimeParser.CreateNewBytes(new IntPtr(this._Start), this._Current - this._Start);
+                else
+                {
+                    _LastLine = MimeParser.CreateNewBytes(new IntPtr(line_Start), this._End - line_Start);
+                }
+                return MimeParser.CreateNewBytes(new IntPtr(this._Start), line_Start - this._Start);
             }
             this._Current++;
             line_Start = this._Current;
