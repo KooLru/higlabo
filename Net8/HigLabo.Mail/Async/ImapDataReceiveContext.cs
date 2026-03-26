@@ -16,6 +16,8 @@ public class ImapDataReceiveContext : DataReceiveContext
         TagValidating, MultiLine, CarriageReturn, LastLine, LastLineCarriageReturn, 
     }
     private Byte[] _TagBytes;
+    //  tag1 can be split between read attempt into buffer
+    private int _tagIndex = 0;
     private ParseState _State = ParseState.TagValidating;
 
     public Boolean IsFetchCommand { get; set; }
@@ -36,17 +38,16 @@ public class ImapDataReceiveContext : DataReceiveContext
     protected override Boolean ParseBuffer(Int32 size)
     {
         Byte[] bb = this.Buffer;
-        Int32 tagIndex = 0;
 
         for (int i = 0; i < size; i++)
         {
             this.Stream.WriteByte(bb[i]);
             if (_State == ParseState.TagValidating)
             {
-                if (bb[i] == _TagBytes[tagIndex])
+                if (bb[i] == _TagBytes[_tagIndex])
                 {
-                    tagIndex = tagIndex + 1;
-                    if (_TagBytes.Length == tagIndex)
+                    _tagIndex = _tagIndex + 1;
+                    if (_TagBytes.Length == _tagIndex)
                     {
                         _State = ParseState.LastLine;
                     }
@@ -67,7 +68,7 @@ public class ImapDataReceiveContext : DataReceiveContext
             {
                 if (bb[i] == AsciiCharCode.LineFeed.GetNumber())
                 {
-                    tagIndex = 0;
+                    _tagIndex = 0;
                     _State = ParseState.TagValidating;
                 }
                 else if (bb[i] == AsciiCharCode.CarriageReturn.GetNumber())
@@ -76,7 +77,7 @@ public class ImapDataReceiveContext : DataReceiveContext
                 }
                 else
                 {
-                    tagIndex = 0;
+                    _tagIndex = 0;
                     _State = ParseState.TagValidating;
                 }
             }
@@ -91,7 +92,13 @@ public class ImapDataReceiveContext : DataReceiveContext
             {
                 if (bb[i] == AsciiCharCode.LineFeed.GetNumber())
                 {
-                    return false;
+                    if (i == size -1) //at end of buffer
+                        return false;
+                    else
+                    {
+                        _State = ParseState.TagValidating;
+                        _tagIndex = 0;
+                    }
                 }
                 else { throw new DataTransferContextException(this); }
             }
