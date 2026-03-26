@@ -1,0 +1,24 @@
+Date: Wed, 24 Nov 2021 12:01:02 +0300
+From: from@mail.aa
+X-Priority: 3
+Subject: Sample HTML mail
+MIME-Version: 1.0
+To: to@mail.aa
+Content-Type: multipart/alternative;
+	boundary="ba2b2ac2_df20_487e_88f8_75bf6ba6cd12"
+
+--ba2b2ac2_df20_487e_88f8_75bf6ba6cd12
+Content-Transfer-Encoding: Quoted-Printable
+Content-Type: text/plain;
+	charset="utf-8";
+
+TEXT
+--ba2b2ac2_df20_487e_88f8_75bf6ba6cd12
+Content-Transfer-Encoding: Quoted-Printable
+Content-Type: text/html;
+	charset="utf-8";
+
+<b>TEXT</b>
+--ba2b2ac2_df20_487e_88f8_75bf6ba6cd12--
+
+.

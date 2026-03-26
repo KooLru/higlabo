@@ -1,0 +1,37 @@
+Date: Wed, 24 Nov 2021 12:01:02 +0300
+From: from@mail.aa
+X-Priority: 3
+Subject: Sample HTML mail and attachment
+MIME-Version: 1.0
+To: to@mail.aa
+Content-Type: multipart/mixed;
+	boundary="9a1851fd_daec_47f6_b1c4_0c26fccdb9a4"
+
+--9a1851fd_daec_47f6_b1c4_0c26fccdb9a4
+Content-Type: multipart/alternative;
+	boundary="f080b064_e115_4896_9121_88a7754ecc52"
+
+--f080b064_e115_4896_9121_88a7754ecc52
+Content-Transfer-Encoding: Quoted-Printable
+Content-Type: text/plain;
+	charset="utf-8";
+
+TEXT
+--f080b064_e115_4896_9121_88a7754ecc52
+Content-Transfer-Encoding: Quoted-Printable
+Content-Type: text/html;
+	charset="utf-8";
+
+<b>TEXT</b>
+--f080b064_e115_4896_9121_88a7754ecc52--
+--9a1851fd_daec_47f6_b1c4_0c26fccdb9a4
+Content-Transfer-Encoding: Quoted-Printable
+Content-Type: text/plain;
+	charset="utf-8";
+Content-Disposition: attachment;
+	FileName*=utf-8''sample%2Etxt
+
+Text file content
+--9a1851fd_daec_47f6_b1c4_0c26fccdb9a4--
+
+.

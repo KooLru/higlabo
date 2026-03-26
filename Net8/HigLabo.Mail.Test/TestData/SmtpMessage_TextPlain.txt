@@ -1,0 +1,13 @@
+Date: Wed, 24 Nov 2021 12:01:02 +0300
+From: from@mail.aa
+X-Priority: 3
+Subject: Sample mail
+MIME-Version: 1.0
+Content-Transfer-Encoding: Base64
+To: to@mail.aa
+Content-Type: text/plain;
+	charset="utf-8";
+
+VGhpcyBpcyBhIHNhbXBsZSBtYWlsIQ==
+
+.
