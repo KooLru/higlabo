@@ -504,7 +504,7 @@ public unsafe sealed class MimeParser
                 }
                 else
                 {
-                    result.Append(p.RawValue);
+                    sb.Append(p.Value); //value i strimmed \" RawValue
                 }
             }
             for (int i = 0; i < pp.Count; i++)
