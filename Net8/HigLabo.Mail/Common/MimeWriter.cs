@@ -204,11 +204,6 @@ public class MimeWriter
             throw new InvalidOperationException("You must set CharsetEncoding property of ContentType property of SmtpContent object.");
         }
 
-        foreach (var header in ct.Headers)
-        {
-            this.WriteHeader(stream, header.Key, header.Value);
-        }
-
         if (ct.ContentType.IsMultipart == true)
         {
             if (String.IsNullOrEmpty(ct.ContentType.Boundary) == true)
@@ -356,23 +351,23 @@ public class MimeWriter
         stream.WriteByte(59);// ;
         stream.Write(ByteData.NewLine);
 
-            if (String.IsNullOrEmpty(header.Boundary) == false)
+        if (String.IsNullOrEmpty(header.Boundary) == false)
         {
             stream.WriteByte(9);// Tab
             stream.Write(ByteData.Boundary);
             stream.WriteByte(34);// "
             stream.Write(GetAsciiBytes(header.Boundary));
             stream.WriteByte(34);// "
-            stream.WriteByte(59);// ;
+            //stream.WriteByte(59);// ;
             stream.Write(ByteData.NewLine);
         }
 
             //for multipart messages only content-type and boundary are need
             //  rfc1341 7.2.1 Multipart: The common syntax
-            if (header.IsMultipart)
-                return;
+        if (header.IsMultipart)
+            return;
 
-            if (header.CharsetEncoding != null) 
+        if (header.CharsetEncoding != null) 
         {
             stream.WriteByte(9);// Tab
             stream.Write(ByteData.Charset);
@@ -754,29 +749,30 @@ public class MimeWriter
 
         else    //  Multipart
         {
-                List<SmtpContent> contents = mg.Contents;
-                //for "alternative @ we not need additional boundary
-                if (mg.Contents.Count == 1) //alternative 
-                    contents = mg.Contents[0].Contents;
-                    
-                //string s = Encoding.ASCII.GetString((stream as MemoryStream).ToArray());
+            List<SmtpContent> contents = mg.Contents;
+            //for "alternative @ we not need additional boundary
+            if (mg.Contents.Count == 1) //alternative 
+                contents = mg.Contents[0].Contents;
+                
+            //string s = Encoding.ASCII.GetString((stream as MemoryStream).ToArray());
 
-                foreach (var c in contents)
-                {
-                    //--boundary\r\n
-                    stream.Write(ByteData.BoundaryStart);
-                    stream.Write(mg.ContentType.BoundaryBytes);
-                stream.Write(ByteData.NewLine);
-
-                    Write(stream, c);
-                }
-
-                //s = Encoding.ASCII.GetString((stream as MemoryStream).ToArray());
-
+            foreach (var c in contents)
+            {
+                //--boundary\r\n
                 stream.Write(ByteData.BoundaryStart);
                 stream.Write(mg.ContentType.BoundaryBytes);
-                stream.Write(ByteData.BoundaryStart);
                 stream.Write(ByteData.NewLine);
+
+                Write(stream, c);
+
+                //s = Encoding.ASCII.GetString((stream as MemoryStream).ToArray());
+            }
+
+
+            stream.Write(ByteData.BoundaryStart);
+            stream.Write(mg.ContentType.BoundaryBytes);
+            stream.Write(ByteData.BoundaryStart);
+            stream.Write(ByteData.NewLine);
         }
     }
     private void WriteEncodedBodyText(Stream stream, String value, TransferEncoding encodeType, Encoding encoding, Int32 maxCharCount)
