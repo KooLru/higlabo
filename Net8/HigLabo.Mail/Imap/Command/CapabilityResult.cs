@@ -22,15 +22,15 @@ public class CapabilityResult : ImapCommandResult
     /// </summary>
     /// <param name="tag"></param>
     /// <param name="text"></param>
-    public CapabilityResult(String tag, String text)
-        : base(tag, text)
+    public CapabilityResult(String tag, byte[] data)
+        : base(tag, data)
     {
         String s = "* Capability ";
-        if (text.StartsWith(s, StringComparison.OrdinalIgnoreCase) == false)
-        { throw new MailClientException(text); }
+        if (Text.StartsWith(s, StringComparison.OrdinalIgnoreCase) == false)
+        { throw new MailClientException(Text); }
 
         String line = "";
-        using (StringReader sr = new StringReader(text))
+        using (StringReader sr = new StringReader(Text))
         {
             line = sr.ReadLine()!;
         }

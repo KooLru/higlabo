@@ -186,20 +186,22 @@ public class ImapClient : SocketClient, IDisposable
     }
     private ImapCommandResult Execute(String command)
     {
-        var text = this.Execute(Encoding.UTF8.GetBytes(command + SocketClient.NewLine), null);
-        return new ImapCommandResult(this.Tag, text);
+        var data = this.Execute(Encoding.UTF8.GetBytes(command + SocketClient.NewLine), null);
+        return new ImapCommandResult(this.Tag, data);
     }
-    private String Execute(String command, String encodedCommand)
+    private ImapCommandResult Execute(String command, String encodedCommand)
     {
-        return this.Execute(Encoding.UTF8.GetBytes(command), Encoding.UTF8.GetBytes(encodedCommand));
+        Byte[] data= this.Execute(Encoding.UTF8.GetBytes(command), Encoding.UTF8.GetBytes(encodedCommand));
+        return new ImapCommandResult(this.Tag, data);
     }
-    private String Execute(Byte[] command, Byte[]? encodedCommand)
+    private byte[] Execute(Byte[] command, Byte[]? encodedCommand)
     {
         if (encodedCommand == null)
         {
             this.Send(command);
             this.Commnicating = true;
-            return this.GetResponseText();
+            Thread.Sleep(256);
+            return this.GetResponseBytes();
         }
         else
         {
@@ -213,13 +215,13 @@ public class ImapClient : SocketClient, IDisposable
             return this.Execute(bb);
         }
     }
-    private String Execute(Byte[] command)
+    private Byte[] Execute(Byte[] command)
     {
         this.Send(command);
         this.Commnicating = true;
         Byte[] res = this.GetResponseBytes();
         this.Commnicating = false;
-        return this.ResponseEncoding.GetString(res);
+        return res;
     }
     private static Byte[] MergeBytes(params Byte[][] byteArrayList)
     {
@@ -236,8 +238,8 @@ public class ImapClient : SocketClient, IDisposable
     
     public CapabilityResult ExecuteCapability()
     {
-        var rs = this.Execute(this.Tag + " CAPABILITY");
-        return new CapabilityResult(this.Tag, rs.Text);
+        var rs = this.Execute(Encoding.UTF8.GetBytes(this.Tag + " CAPABILITY"));
+        return new CapabilityResult(this.Tag, rs);
     }
 
     public ImapCommandResult ExecuteLogin()
@@ -271,7 +273,7 @@ public class ImapClient : SocketClient, IDisposable
         this.ValidateState(ImapConnectionState.Authenticated);
         String commandText = String.Format(this.Tag + " Select \"{0}\"", _ModifiedUtf7Converter.Encode(folderName));
         ImapCommandResult rs = this.Execute(commandText);
-        var srs = this.GetSelectResult(folderName, rs.Text);
+        var srs = this.GetSelectResult(folderName, rs);
         this.CurrentFolder = new ImapFolder(srs);
         return srs;
     }
@@ -280,13 +282,12 @@ public class ImapClient : SocketClient, IDisposable
         this.ValidateState(ImapConnectionState.Authenticated);
         String commandText = String.Format(this.Tag + " Examine \"{0}\"", _ModifiedUtf7Converter.Encode(folderName));
         var rs = this.Execute(commandText);
-        var srs = this.GetSelectResult(folderName, rs.Text);
+        var srs = this.GetSelectResult(folderName, rs);
         this.CurrentFolder = new ImapFolder(srs);
         return srs;
     }
-    private SelectResult GetSelectResult(String folderName, String text)
+    private SelectResult GetSelectResult(String folderName, ImapCommandResult rs)
     {
-        var rs = new ImapCommandResult(this.Tag, text);
         if (rs.Status == ImapCommandResultStatus.Ok)
         {
             Int32 exists = 0;
@@ -312,7 +313,7 @@ public class ImapClient : SocketClient, IDisposable
             }
             return new SelectResult(folderName, exists, recent, l.ToArray());
         }
-        throw new MailClientException(text);
+        throw new MailClientException(rs.Text);
     }
     public ImapCommandResult ExecuteCreate(String folderName)
     {
@@ -551,8 +552,7 @@ public class ImapClient : SocketClient, IDisposable
         }
         String commandText = String.Format(this.Tag + " APPEND \"{0}\" ({1}) \"{2}\" "
             , _ModifiedUtf7Converter.Encode(folderName), String.Join(" ", flags), dateText);
-        var text = this.Execute(commandText, mailData);
-        return new ImapCommandResult(this.Tag, text);
+        return this.Execute(commandText, mailData);
     }
     public ImapCommandResult ExecuteRename(String oldFolderName, String folderName)
     {
@@ -840,13 +840,14 @@ public class ImapClient : SocketClient, IDisposable
         if (command.IsEncodeValue == true)
         {
             this.ValidateState(ImapConnectionState.Authenticated, true);
-            var searchText = this.Execute(Encoding.UTF8.GetBytes(this.Tag + " " + command.GetCommandText()), command.GetEncodedValue());
+            var result = this.Execute(Encoding.UTF8.GetBytes(this.Tag + " " + command.GetCommandText()), command.GetEncodedValue());
+            String searchText = Encoding.UTF8.GetString(result);
             if (searchText.StartsWith("* Search", StringComparison.OrdinalIgnoreCase) == false)
             {
                 throw new MailClientException(searchText);
             }
             var bb = this.GetResponseBytes();
-            var rs = new ImapCommandResult(this.Tag, this.ResponseEncoding.GetString(bb));
+            var rs = new ImapCommandResult(this.Tag, bb);
             if (rs.Status == ImapCommandResultStatus.Ok)
             {
                 return new SearchResult(searchText);
@@ -882,11 +883,12 @@ public class ImapClient : SocketClient, IDisposable
         {
             commandText = String.Format(this.Tag + " FETCH {0} (BODY.PEEK[])", mailIndex);
         }
+        //Get bytes
+        //this.Send(command);
         var result = this.Execute(commandText);
         if (result.Status == ImapCommandResultStatus.Bad) { throw new MailClientException(result.Text); }
-        var text = this.GetMessageText(result.Text);
-        this.MimeParser.Encoding = this.ResponseEncoding;
-        return this.MimeParser.ToMailMessage(text);
+        byte[]? data = GetMessageData(result.Data);
+        return this.MimeParser.ToMailMessage(new MemoryStream(data));
     }
     public List<MailMessage> GetMessages(params Int32[] mailIndexList)
     {
@@ -955,23 +957,42 @@ public class ImapClient : SocketClient, IDisposable
 
         return l;
     }
-    private String GetMessageText(String text)
+    private byte[]? GetMessageData(byte[] res)
     {
-        StringBuilder sb = new StringBuilder(text.Length);
-        StringReader sr = new StringReader(text);
-        String endOfLine = String.Format("{0} OK", this.Tag);
-        Boolean isFirstLine = true;
-        while (true)
+        //  Cut message data from byte array
+        //  we need "some text" bytes
+/*        
+* 1 FETCH (BODY[] {2965}
+some text
+)
+tag1 OK FETCH Completed.
+*/
+        // Find line end positions
+        List<int> lineBreaks = new List<int>();
+        for (int i = 0; i < res.Length - 1; i++)
         {
-            var line = sr.ReadLine()!;
-            if (isFirstLine == true && line.StartsWith("*") == true) { continue; }
-            if (line.StartsWith(")") == true) { continue; }
-            if (line.StartsWith(endOfLine, StringComparison.OrdinalIgnoreCase) == true) { break; }
-            sb.AppendLine(line);
-
-            if (sr.Peek() == -1) { break; }
+            if (res[i] == '\r' && res[i + 1] == '\n')
+            {
+                lineBreaks.Add(i);
+                i++; // skip \n
+            }
+            else if (res[i] == '\n')
+            {
+                lineBreaks.Add(i);
+            }
         }
-        return sb.ToString();
+
+        if (lineBreaks.Count < 3)
+            return null;
+
+        int startPos = lineBreaks[0] + 2; // after first (zero based) line
+        int endPos = lineBreaks[lineBreaks.Count - 3]; // last line
+
+        int length = endPos - startPos;
+        byte[] resultArray = new byte[length];
+        Array.Copy(res, startPos, resultArray, 0, length);
+
+        return resultArray;
     }
 
     public IEnumerable<FetchCommandResult<Int32>> GetMessageSizes(Int32 startIndex, Int32 endIndex)
