@@ -192,17 +192,20 @@ public class ImapClient : SocketClient, IDisposable
         if (this._Mode == ImapAuthenticateMode.Login)
         {
             var rs = this.ExecuteLogin();
-            return rs.Status == ImapCommandResultStatus.Ok;
+            if (rs.Status != ImapCommandResultStatus.Ok)
+                throw new ImapAuthenticateException(rs.Text);
         }
         else if (this._Mode == ImapAuthenticateMode.XOAUTH2)
         {
             var cap = this.ExecuteCapability();
             var rs = this.ExecuteXOAUTH2();
-            return rs.Status == ImapCommandResultStatus.Ok;
+            if (rs.Status != ImapCommandResultStatus.Ok)
+                throw new ImapAuthenticateException(rs.Text);
         }
         else
             throw new InvalidOperationException();
 
+        return this._State == ImapConnectionState.Authenticated;
     }
     private ImapCommandResult Execute(String command)
     {
