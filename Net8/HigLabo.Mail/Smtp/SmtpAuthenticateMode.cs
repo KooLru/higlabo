@@ -27,7 +27,7 @@ public enum SmtpAuthenticateMode
 		/// <summary>
 		/// 
 		/// </summary>
-    Auto, 
+	Auto, 
 		/// <summary>
 		/// 
 		/// </summary>
@@ -48,4 +48,5 @@ public enum SmtpAuthenticateMode
     /// 
     /// </summary>
     PopBeforeSmtp,
+	XOAUTH2,
 }

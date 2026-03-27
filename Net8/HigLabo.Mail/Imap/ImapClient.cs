@@ -33,6 +33,7 @@ public class ImapClient : SocketClient, IDisposable
     public new static readonly ImapClientDefaultSettings Default = new ImapClientDefaultSettings();
     private ModifiedUtf7Converter _ModifiedUtf7Converter = new ModifiedUtf7Converter(200);
     private Int32 _TagNo = Default.TagNo;
+    private ImapAuthenticateMode _Mode = Default.AuthenticateMode;
     private ImapConnectionState _State = ImapConnectionState.Disconnected;
 
     private String Tag
@@ -53,6 +54,11 @@ public class ImapClient : SocketClient, IDisposable
         }
     }
     public ImapFolder? CurrentFolder { get; private set; }
+    public ImapAuthenticateMode AuthenticateMode
+    {
+        get { return this._Mode; }
+        set { this._Mode = value; }
+    }
     public Boolean Available
     {
         get { return this._State != ImapConnectionState.Disconnected; }
@@ -181,8 +187,22 @@ public class ImapClient : SocketClient, IDisposable
     {
         if (this._State == ImapConnectionState.Authenticated) { return true; }
         if (this.EnsureOpen() == ImapConnectionState.Disconnected) { return false; }
-        var rs = this.ExecuteLogin();
-        return this.State == ImapConnectionState.Authenticated;
+
+
+        if (this._Mode == ImapAuthenticateMode.Login)
+        {
+            var rs = this.ExecuteLogin();
+            return rs.Status == ImapCommandResultStatus.Ok;
+        }
+        else if (this._Mode == ImapAuthenticateMode.XOAUTH2)
+        {
+            var cap = this.ExecuteCapability();
+            var rs = this.ExecuteXOAUTH2();
+            return rs.Status == ImapCommandResultStatus.Ok;
+        }
+        else
+            throw new InvalidOperationException();
+
     }
     private ImapCommandResult Execute(String command)
     {
@@ -256,6 +276,36 @@ public class ImapClient : SocketClient, IDisposable
         }
         return rs;
     }
+
+    public ImapCommandResult ExecuteXOAUTH2()
+    {
+        if (this.EnsureOpen() == ImapConnectionState.Disconnected) { throw new MailClientException("Connection is not available."); }
+
+        String SASLResponse = String.Format(
+            "user={0}\u0001auth=Bearer {1}\u0001\u0001",
+            this.UserName,
+            this.Password
+        );
+
+        var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(SASLResponse);
+
+        String commandText = String.Format(this.Tag + " AUTHENTICATE XOAUTH2 {0}",
+            System.Convert.ToBase64String(plainTextBytes));
+        ImapCommandResult rs = this.Execute(commandText);
+        if (rs.Status == ImapCommandResultStatus.Ok)
+        {
+            this._State = ImapConnectionState.Authenticated;
+        }
+        else
+        {
+            this._State = ImapConnectionState.Connected;
+        }
+        return rs;
+    }
+
+
+
+
     public ImapCommandResult ExecuteLogout()
     {
         this.ValidateState(ImapConnectionState.Authenticated);

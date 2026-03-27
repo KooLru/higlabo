@@ -241,6 +241,8 @@ public partial class SmtpClient : SocketClient, IDisposable
                     { return this.AuthenticateByLogin(); }
                     if (s.Contains("PLAIN") == true)
                     { return this.AuthenticateByPlain(); }
+                    if (s.Contains("XOAUTH2") == true)
+                    { return this.AuthenticateByXOAUTH2(); }
                     if (s.Contains("CRAM-MD5") == true)
                     { return this.AuthenticateByCramMD5(); }
                 }
@@ -267,6 +269,7 @@ public partial class SmtpClient : SocketClient, IDisposable
                 case SmtpAuthenticateMode.None: return true;
                 case SmtpAuthenticateMode.Plain: return this.AuthenticateByPlain();
                 case SmtpAuthenticateMode.Login: return this.AuthenticateByLogin();
+                case SmtpAuthenticateMode.XOAUTH2: return this.AuthenticateByXOAUTH2();
                 case SmtpAuthenticateMode.Cram_MD5: return this.AuthenticateByCramMD5();
                 case SmtpAuthenticateMode.PopBeforeSmtp:
                     {
@@ -315,6 +318,35 @@ public partial class SmtpClient : SocketClient, IDisposable
         }
         return this._State == SmtpConnectionState.Authenticated;
     }
+    public Boolean AuthenticateByXOAUTH2()
+    {
+        if (this.EnsureOpen() == SmtpConnectionState.Connected)
+        {
+            String SASLResponse = String.Format(
+                "user={0}\u0001auth=Bearer {1}\u0001\u0001",
+                this.UserName,
+                this.Password
+            );
+
+            var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(SASLResponse);
+
+            String commandText = String.Format("AUTH XOAUTH2 {0}",
+                System.Convert.ToBase64String(plainTextBytes)
+            );
+
+            SmtpCommandResult rs = this.Execute(commandText);
+
+            if (rs.StatusCode == SmtpCommandResultCode.AuthenticationSuccessful)
+            {
+                this._State = SmtpConnectionState.Authenticated;
+            }
+            else
+            {
+                throw new SmtpAuthenticateException(rs.Message);
+            }
+        }
+        return this._State == SmtpConnectionState.Authenticated;
+    } 
     public Boolean AuthenticateByCramMD5()
     {
         if (this.EnsureOpen() == SmtpConnectionState.Connected)
